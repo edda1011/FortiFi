@@ -8,7 +8,6 @@ from app.services.claim_service import ClaimService
 
 
 router = APIRouter(
-    prefix="/api/claims",
     tags=["Claims"],
 )
 
