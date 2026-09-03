@@ -202,12 +202,45 @@ function AIConsensusCard({ analysis }) {
   );
 }
 
-function NewsCard({ news }) {
+function NewsCard({ news, onCheckHeadline }) {
+  const [selectedHeadline, setSelectedHeadline] = useState(null);
+  const usingBriefingFallback = news.some((item) => item.is_live === false);
+
+  function closeChoice() {
+    setSelectedHeadline(null);
+  }
+
+  function openSource() {
+    if (selectedHeadline) {
+      window.open(selectedHeadline.url, "_blank", "noopener,noreferrer");
+    }
+    closeChoice();
+  }
+
+  function sendToClaimCheck() {
+    if (selectedHeadline) {
+      onCheckHeadline(selectedHeadline.title);
+    }
+    closeChoice();
+  }
+
   return <section className="dash-card news-card">
-    <div className="dash-card-header"><h3>Market News</h3><span className="dash-card-sub">Live search</span></div>
+    <div className="dash-card-header"><h3>Market News</h3><span className="dash-card-sub">{usingBriefingFallback ? "Market briefing" : "Live search"}</span></div>
     {news.length === 0 ? <EmptyState title="News is unavailable" message="Try again when the search service is reachable." /> : <div className="news-list">{news.map((item) => (
-      <a className="news-item" key={item.url} href={item.url} target="_blank" rel="noreferrer"><span>{item.source}</span><strong>{item.title}</strong><p>{item.excerpt}</p></a>
+      <button className="news-item" key={item.url} type="button" onClick={() => setSelectedHeadline(item)}><span>{item.source}</span><strong>{item.title}</strong><p>{item.excerpt}</p></button>
     ))}</div>}
+    {selectedHeadline && <div className="headline-dialog-backdrop" role="presentation" onMouseDown={closeChoice}>
+      <section className="headline-dialog" role="dialog" aria-modal="true" aria-labelledby="headline-choice-title" onMouseDown={(event) => event.stopPropagation()}>
+        <span className="dashboard-eyebrow">Headline selected</span>
+        <h3 id="headline-choice-title">{selectedHeadline.title}</h3>
+        <p>Would you like to read the original source or use this headline as a claim for FortiFi to check?</p>
+        <div className="headline-dialog-actions">
+          <button type="button" onClick={sendToClaimCheck}>Send to Claim Check</button>
+          <button type="button" className="button-secondary" onClick={openSource}>Visit source</button>
+          <button type="button" className="button-secondary" onClick={closeChoice}>Cancel</button>
+        </div>
+      </section>
+    </div>}
   </section>;
 }
 
@@ -230,7 +263,7 @@ function ProtectionCard() {
 }
 
 
-function Dashboard() {
+function Dashboard({ onCheckHeadline }) {
   const [summary, setSummary] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -301,7 +334,7 @@ function Dashboard() {
           <RiskCard risk={summary?.risk} />
           <AIConsensusCard analysis={summary?.latest_analysis} />
           <ProtectionCard />
-          <NewsCard news={news} />
+          <NewsCard news={news} onCheckHeadline={onCheckHeadline} />
         </div>
       )}
     </div>

@@ -55,14 +55,12 @@ class SearchService:
                 response = await client.get(url)
                 response.raise_for_status()
         except httpx.HTTPError:
-            # Search failure should not prevent an evidence-aware model from
-            # explicitly reporting that evidence could not be retrieved.
-            return []
+            return self._fallback_news(limit, model) if model is NewsItem else []
 
         try:
             root = ElementTree.fromstring(response.content)
         except ElementTree.ParseError:
-            return []
+            return self._fallback_news(limit, model) if model is NewsItem else []
 
         results = []
         for item in root.findall("./channel/item")[:limit]:
@@ -76,6 +74,23 @@ class SearchService:
             if link:
                 results.append(model(title=title, url=link, source=source, excerpt=excerpt[:700], published_at=published_at))
         return results
+
+    @staticmethod
+    def _fallback_news(limit: int, model) -> list[NewsItem]:
+        """Keeps the prototype dashboard useful if its public RSS source is blocked.
+
+        These are intentionally labelled briefing links, rather than being
+        presented as live headlines. Claim evidence never uses this fallback.
+        """
+        briefing = [
+            ("Crypto market overview", "CoinGecko", "https://www.coingecko.com/en/coins/bitcoin", "Open a current market overview before acting on a headline."),
+            ("Digital asset market data", "CoinMarketCap", "https://coinmarketcap.com/", "Review market movements and asset data from the source."),
+            ("Federal Reserve news", "Federal Reserve", "https://www.federalreserve.gov/newsevents.htm", "Check primary-source US monetary-policy announcements."),
+        ]
+        return [
+            model(title=title, source=source, url=url, excerpt=excerpt, is_live=False)
+            for title, source, url, excerpt in briefing[:limit]
+        ]
 
     @staticmethod
     def _to_text(value: str) -> str:

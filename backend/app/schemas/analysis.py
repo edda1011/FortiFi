@@ -1,6 +1,6 @@
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 Verdict = Literal[
@@ -92,9 +92,28 @@ class PortfolioExposure(BaseModel):
     disclaimer: str
 
 
+class PortfolioContext(BaseModel):
+    """Minimal, address-free wallet context available to recommendations."""
+
+    wallet_connected: bool = False
+    network: str | None = None
+    total_value: float | None = None
+    allocations: dict[str, float] = Field(default_factory=dict)
+
+
 class FinalAssessment(BaseModel):
     verdict: Verdict
     analysis: str
+
+
+class Recommendation(BaseModel):
+    """A proposed next step. Execution is deliberately outside this API."""
+
+    title: str
+    rationale: str = ""
+    steps: list[str] = Field(default_factory=list)
+    automation_eligible: bool = False
+    requires_confirmation: bool = True
 
 
 class ClaimAnalysisResponse(BaseModel):
@@ -105,8 +124,22 @@ class ClaimAnalysisResponse(BaseModel):
     evidence: list[EvidenceItem] = Field(default_factory=list)
     consensus: ConsensusAnalysis
     final_assessment: FinalAssessment
+    portfolio_context: PortfolioContext = Field(default_factory=PortfolioContext)
     portfolio_exposure: PortfolioExposure | None = None
-    recommendations: list[str] = Field(default_factory=list)
+    recommendations: list[Recommendation] = Field(default_factory=list)
+
+    @field_validator("recommendations", mode="before")
+    @classmethod
+    def normalize_legacy_recommendations(cls, value):
+        # Lets analyses saved by the earlier prototype remain readable.
+        if not isinstance(value, list):
+            return []
+        return [
+            {"title": item, "steps": [item]}
+            if isinstance(item, str)
+            else item
+            for item in value
+        ]
 
 
 class NewsItem(BaseModel):
@@ -115,6 +148,7 @@ class NewsItem(BaseModel):
     source: str
     excerpt: str
     published_at: str | None = None
+    is_live: bool = True
 
 
 class ClaimAnalysisRequest(BaseModel):

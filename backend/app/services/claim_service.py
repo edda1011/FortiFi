@@ -5,6 +5,7 @@ from app.schemas.analysis import (
     EvidenceItem,
     FinalAssessment,
     ModelAnalysis,
+    PortfolioContext,
 )
 from app.services.analysis_store import AnalysisStore
 from app.services.consensus_service import ConsensusService
@@ -78,6 +79,8 @@ class ClaimService:
             f"Consensus confidence is {consensus.confidence:.0%}, with "
             f"{consensus.market_impact.lower()} potential market impact. {next_step}"
         )
+        portfolio_context = self._portfolio_context()
+        portfolio_exposure = self.exposure_service.calculate(claim)
         missing_context = list(
             dict.fromkeys(
                 item
@@ -86,7 +89,13 @@ class ClaimService:
             )
         )
         recommendations = [
-            f"Verify before acting: {item}"
+            {
+                "title": f"Verify before acting: {item}",
+                "rationale": "The responding models identified this context as missing.",
+                "steps": [f"Find an independent source that addresses: {item}"],
+                "automation_eligible": False,
+                "requires_confirmation": True,
+            }
             for item in missing_context[:3]
         ]
         result = ClaimAnalysisResponse(
@@ -95,8 +104,29 @@ class ClaimService:
                 verdict=consensus.verdict,
                 analysis=local_assessment,
             ),
-            portfolio_exposure=self.exposure_service.calculate(claim),
+            portfolio_context=portfolio_context,
+            portfolio_exposure=portfolio_exposure,
             recommendations=recommendations,
         )
         self.store.save(result)
         return result
+
+    @staticmethod
+    def _portfolio_context() -> PortfolioContext:
+        """Build the optional recommendation input without sending an address."""
+        from app.services.state import app_state
+
+        wallet = app_state.wallet
+        if wallet is None:
+            return PortfolioContext()
+
+        eth_allocation = round(wallet.eth_exposure_percent, 2)
+        return PortfolioContext(
+            wallet_connected=True,
+            network=wallet.network,
+            total_value=round(wallet.total_value, 2),
+            allocations={
+                "ETH": eth_allocation,
+                "USDC": round(max(0.0, 100 - eth_allocation), 2),
+            },
+        )

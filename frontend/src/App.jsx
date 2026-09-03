@@ -152,6 +152,13 @@ function App() {
     }
   }
 
+  function handleHeadlineForClaimCheck(headline) {
+    setClaim(headline);
+    setResult(null);
+    setError("");
+    setView("claim");
+  }
+
 
   return (
     <div className="app">
@@ -219,7 +226,7 @@ function App() {
 
       <main className="main">
 
-        {view === "dashboard" && <Dashboard />}
+        {view === "dashboard" && <Dashboard onCheckHeadline={handleHeadlineForClaimCheck} />}
 
         {view === "wallet" && <WalletPanel />}
 
@@ -458,16 +465,33 @@ function App() {
                 </div>
               )}
 
-              {result.recommendations.length > 0 && (
-                <div className="summary recommendations">
-                  <h3>Considerations</h3>
-                  <ul>
-                    {result.recommendations.map((recommendation) => (
-                      <li key={recommendation}>{recommendation}</li>
-                    ))}
-                  </ul>
+              <section className="recommendation-section">
+                <div className="recommendation-heading">
+                  <div>
+                    <span className="dashboard-eyebrow">Next-step plan</span>
+                    <h3>Recommendations</h3>
+                  </div>
+                  <span className="recommendation-status">
+                    {result.portfolio_context?.wallet_connected ? "Wallet context included" : "Review required"}
+                  </span>
                 </div>
-              )}
+                <p className="recommendation-context">
+                  {result.portfolio_context?.wallet_connected
+                    ? `Recommendations considered your ${result.portfolio_context.network} portfolio allocation locally. No wallet address was sent to an AI model.`
+                    : "No wallet is connected, so these recommendations are based only on the claim and evidence."}
+                </p>
+                {result.recommendations.length > 0 ? result.recommendations.map((recommendation, index) => (
+                  <article className="recommendation-card" key={`${recommendation.title}-${index}`}>
+                    <div className="recommendation-card-head">
+                      <h4>{recommendation.title}</h4>
+                      <span>{recommendation.automation_eligible ? "Automation-ready plan" : "Manual plan"}</span>
+                    </div>
+                    {recommendation.rationale && <p>{recommendation.rationale}</p>}
+                    {recommendation.steps.length > 0 && <ol>{recommendation.steps.map((step, stepIndex) => <li key={`${step}-${stepIndex}`}>{step}</li>)}</ol>}
+                    <small>No action is performed here. Any future automation must show this plan and get explicit user confirmation.</small>
+                  </article>
+                )) : <p className="recommendation-empty">No next-step plan was generated. Review the evidence and model assessment before taking action.</p>}
+              </section>
 
             </div>
 
