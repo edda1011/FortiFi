@@ -92,6 +92,15 @@ class PortfolioExposure(BaseModel):
     disclaimer: str
 
 
+class PortfolioContext(BaseModel):
+    """Minimal, address-free wallet context available to recommendations."""
+
+    wallet_connected: bool = False
+    network: str | None = None
+    total_value: float | None = None
+    allocations: dict[str, float] = Field(default_factory=dict)
+
+
 class FinalAssessment(BaseModel):
     verdict: Verdict
     analysis: str
@@ -115,6 +124,7 @@ class ClaimAnalysisResponse(BaseModel):
     evidence: list[EvidenceItem] = Field(default_factory=list)
     consensus: ConsensusAnalysis
     final_assessment: FinalAssessment
+    portfolio_context: PortfolioContext = Field(default_factory=PortfolioContext)
     portfolio_exposure: PortfolioExposure | None = None
     recommendations: list[Recommendation] = Field(default_factory=list)
 

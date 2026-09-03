@@ -375,8 +375,15 @@ function App() {
                     <span className="dashboard-eyebrow">Next-step plan</span>
                     <h3>Recommendations</h3>
                   </div>
-                  <span className="recommendation-status">Review required</span>
+                  <span className="recommendation-status">
+                    {result.portfolio_context?.wallet_connected ? "Wallet context included" : "Review required"}
+                  </span>
                 </div>
+                <p className="recommendation-context">
+                  {result.portfolio_context?.wallet_connected
+                    ? `Recommendations considered your ${result.portfolio_context.network} portfolio allocation. No wallet address was sent to the AI finalizer.`
+                    : "No wallet is connected, so these recommendations are based only on the claim and evidence."}
+                </p>
                 {result.recommendations.length > 0 ? result.recommendations.map((recommendation, index) => (
                   <article className="recommendation-card" key={`${recommendation.title}-${index}`}>
                     <div className="recommendation-card-head">

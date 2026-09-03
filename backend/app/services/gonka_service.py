@@ -102,7 +102,14 @@ class GonkaService:
             **raw_result,
         )
 
-    async def finalize_claim(self, claim: str, consensus, evidence: list[dict]) -> dict:
+    async def finalize_claim(
+        self,
+        claim: str,
+        consensus,
+        evidence: list[dict],
+        portfolio_context: dict | None = None,
+        portfolio_exposure: dict | None = None,
+    ) -> dict:
         finalizer_system = """You are FortiFi's final assessment editor. Return ONLY valid JSON.
 Use only the supplied consensus and evidence. Never invent facts, sources, prices, or calculations.
 The JSON must have exactly: verdict (LIKELY_TRUE, LIKELY_FALSE, or UNCERTAIN), analysis (string), recommendations (array).
@@ -111,7 +118,9 @@ Each recommendation must have title, rationale, steps (array of short strings), 
 CLAIM: {claim}
 DETERMINISTIC CONSENSUS: {consensus.model_dump_json()}
 EVIDENCE: {evidence}
-Recommendations must be cautious, actionable considerations, never financial advice. They are plans only: never claim an action was executed and always set requires_confirmation to true. Do not alter consensus scores or invent facts."""
+WALLET CONTEXT (optional, address-free): {portfolio_context or 'No wallet connected. Do not assume holdings.'}
+DETERMINISTIC SCENARIO EXPOSURE (optional): {portfolio_exposure or 'No claim-specific scenario could be calculated.'}
+Recommendations must be cautious, actionable considerations, never financial advice. When wallet context exists, use it only to tailor the recommendation; do not change its deterministic values. They are plans only: never claim an action was executed and always set requires_confirmation to true. Do not alter consensus scores or invent facts."""
         return await self.client.analyze_claim(
             model=self.models["DeepSeek-V4-Flash"], system_prompt=finalizer_system, user_prompt=prompt
         )
