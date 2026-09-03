@@ -1,9 +1,10 @@
-from app.schemas.analysis import ConsensusAnalysis
 from uuid import uuid4
 
 from app.schemas.analysis import (
     ClaimAnalysisResponse,
+    EvidenceItem,
     FinalAssessment,
+    ModelAnalysis,
     PortfolioContext,
 )
 from app.services.analysis_store import AnalysisStore
@@ -36,39 +37,72 @@ class ClaimService:
         analyses = await self.gonka_service.analyze_claim(
             claim, evidence_data
         )
+        return self.build_result(claim, evidence, analyses)
+
+    def build_result(
+        self,
+        claim: str,
+        evidence: list[EvidenceItem],
+        analyses: list[ModelAnalysis],
+    ) -> ClaimAnalysisResponse:
         consensus = self.consensus_service.calculate(analyses)
+        supporting_models = sum(
+            analysis.verdict == consensus.verdict for analysis in analyses
+        )
+        representative = max(
+            (
+                analysis
+                for analysis in analyses
+                if analysis.verdict == consensus.verdict
+            ),
+            key=lambda analysis: analysis.confidence,
+        )
+        verdict_statement, next_step = {
+            "LIKELY_TRUE": (
+                "Evidence leans in favor of this claim.",
+                "Treat it as supported, but verify the cited evidence before acting.",
+            ),
+            "LIKELY_FALSE": (
+                "Evidence leans against this claim.",
+                "Do not rely on it without stronger, independently verified evidence.",
+            ),
+            "UNCERTAIN": (
+                "The claim remains unverified.",
+                "Treat it as a market hypothesis, not a verified trading signal.",
+            ),
+        }[consensus.verdict]
+        local_assessment = (
+            f"FortiFi verdict: {verdict_statement} "
+            f"{supporting_models} of {len(analyses)} models reached this conclusion. "
+            f"The strongest supporting assessment found that "
+            f"{representative.reasoning_summary} "
+            f"Consensus confidence is {consensus.confidence:.0%}, with "
+            f"{consensus.market_impact.lower()} potential market impact. {next_step}"
+        )
         portfolio_context = self._portfolio_context()
         portfolio_exposure = self.exposure_service.calculate(claim)
-        try:
-            final = await self.gonka_service.finalize_claim(
-                claim,
-                consensus,
-                evidence_data,
-                portfolio_context.model_dump(),
-                portfolio_exposure.model_dump() if portfolio_exposure else None,
+        missing_context = list(
+            dict.fromkeys(
+                item
+                for analysis in analyses
+                for item in analysis.missing_context
             )
-        except Exception:
-            # The independent model consensus remains a useful result when
-            # the optional synthesis request is unavailable.
-            final = {}
-        verdict = final.get("verdict", consensus.verdict)
-        if verdict not in {"LIKELY_TRUE", "LIKELY_FALSE", "UNCERTAIN"}:
-            verdict = consensus.verdict
-        recommendations = final.get("recommendations", [])
-        if not isinstance(recommendations, list):
-            recommendations = []
+        )
         recommendations = [
-            {"title": item, "rationale": "", "steps": [item], "automation_eligible": False, "requires_confirmation": True}
-            if isinstance(item, str)
-            else {**item, "requires_confirmation": True}
-            for item in recommendations
-            if isinstance(item, (str, dict))
+            {
+                "title": f"Verify before acting: {item}",
+                "rationale": "The responding models identified this context as missing.",
+                "steps": [f"Find an independent source that addresses: {item}"],
+                "automation_eligible": False,
+                "requires_confirmation": True,
+            }
+            for item in missing_context[:3]
         ]
         result = ClaimAnalysisResponse(
             analysis_id=str(uuid4()), claim=claim, evidence=evidence, consensus=consensus,
             final_assessment=FinalAssessment(
-                verdict=verdict,
-                analysis=final.get("analysis", consensus.reasoning_summary),
+                verdict=consensus.verdict,
+                analysis=local_assessment,
             ),
             portfolio_context=portfolio_context,
             portfolio_exposure=portfolio_exposure,

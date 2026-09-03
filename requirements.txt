@@ -7,3 +7,4 @@ pydantic-settings
 httpx
 eth-utils
 eth-hash[pycryptodome]
+pytest

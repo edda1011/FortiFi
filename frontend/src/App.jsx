@@ -2,6 +2,7 @@ import { useState } from "react";
 
 import { analyzeClaim } from "./api/claims";
 import Dashboard from "./components/Dashboard.jsx";
+import HistoryPanel from "./components/HistoryPanel.jsx";
 import WalletPanel from "./components/WalletPanel.jsx";
 
 
@@ -61,6 +62,47 @@ function ModelResult({ result }) {
 }
 
 
+function AnalysisProgress({ progress }) {
+  if (!progress) return null;
+
+  const completed = progress.models.filter(
+    (model) => model.status === "completed"
+  ).length;
+
+  return (
+    <section className="analysis-progress" aria-live="polite">
+      <div className="progress-heading">
+        <div>
+          <h2>Analyzing claim</h2>
+          <p>{progress.phase}</p>
+        </div>
+        <strong>{completed} of 3 complete</strong>
+      </div>
+
+      <div className="progress-track" aria-hidden="true">
+        <span style={{ width: `${(completed / 3) * 100}%` }} />
+      </div>
+
+      <div className="model-progress-list">
+        {progress.models.map((model) => (
+          <div className="model-progress-row" key={model.model}>
+            <span className={`model-status-dot model-status-${model.status}`} />
+            <strong>{model.model}</strong>
+            <span>{model.status.replace("_", " ")}</span>
+          </div>
+        ))}
+      </div>
+
+      <p className="progress-note">
+        {progress.wait_for_all
+          ? "Complete mode waits for all three independent assessments."
+          : "Fast mode returns when two independent assessments are ready."}
+      </p>
+    </section>
+  );
+}
+
+
 function App() {
   const [view, setView] = useState("dashboard");
 
@@ -68,10 +110,19 @@ function App() {
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [waitForAll, setWaitForAll] = useState(false);
+  const [progress, setProgress] = useState(null);
+
+  const completedModels = progress?.models.filter(
+    (model) => model.status === "completed"
+  ).length ?? 0;
+  const fastConsensusFailed = Boolean(
+    error && progress && !progress.wait_for_all && completedModels < 2
+  );
 
 
   async function handleSubmit(event) {
-    event.preventDefault();
+    event?.preventDefault();
 
     const trimmedClaim = claim.trim();
 
@@ -83,10 +134,11 @@ function App() {
     setLoading(true);
     setError("");
     setResult(null);
+    setProgress(null);
 
     try {
       const analysis =
-        await analyzeClaim(trimmedClaim);
+        await analyzeClaim(trimmedClaim, waitForAll, setProgress);
 
       setResult(analysis);
     } catch (err) {
@@ -130,6 +182,18 @@ function App() {
           >
             Dashboard
           </button>
+
+          <button
+            type="button"
+            className={
+              view === "history"
+                ? "tab tab-active"
+                : "tab"
+            }
+            onClick={() => setView("history")}
+          >
+            History
+          </button>
           
           <button
             type="button"
@@ -166,6 +230,8 @@ function App() {
 
         {view === "wallet" && <WalletPanel />}
 
+        {view === "history" && <HistoryPanel />}
+
         {view === "claim" && (
         <>
         <section className="claim-section">
@@ -198,6 +264,20 @@ function App() {
               maxLength={10000}
             />
 
+            <label className="analysis-mode-option">
+              <input
+                type="checkbox"
+                checked={waitForAll}
+                onChange={(event) => setWaitForAll(event.target.checked)}
+                disabled={loading}
+              />
+              <span className="analysis-mode-control" aria-hidden="true" />
+              <span>
+                <strong>Wait for all 3 models</strong>
+                <small>More complete consensus, but it may take longer.</small>
+              </span>
+            </label>
+
 
             <div className="input-footer">
 
@@ -222,20 +302,31 @@ function App() {
 
 
         {error && (
-          <section className="error">
-            <strong>Analysis failed</strong>
-            <p>{error}</p>
+          <section
+            className={fastConsensusFailed ? "error error-retry" : "error"}
+            role="alert"
+          >
+            <strong>
+              {fastConsensusFailed
+                ? "Fast consensus could not be completed"
+                : "Analysis failed"}
+            </strong>
+            <p>
+              {fastConsensusFailed
+                ? "Fewer than 2 AI models responded within 35 seconds. Gonka may be busy—please try the analysis again."
+                : error}
+            </p>
+            {fastConsensusFailed && (
+              <button type="button" onClick={() => handleSubmit()}>
+                Retry Analysis
+              </button>
+            )}
           </section>
         )}
 
 
-        {loading && (
-          <section className="loading">
-            <p>
-              FortiFi is asking the AI models
-              to independently analyze the claim...
-            </p>
-          </section>
+        {progress && (loading || error) && (
+          <AnalysisProgress progress={progress} />
         )}
 
 
@@ -320,6 +411,11 @@ function App() {
                 {result.final_assessment.analysis}
               </p>
 
+              <small className="summary-source">
+                Locally synthesized from {result.consensus.model_results.length} of 3
+                independent AI assessments. No additional AI request was used.
+              </small>
+
             </div>
 
 
@@ -381,7 +477,7 @@ function App() {
                 </div>
                 <p className="recommendation-context">
                   {result.portfolio_context?.wallet_connected
-                    ? `Recommendations considered your ${result.portfolio_context.network} portfolio allocation. No wallet address was sent to the AI finalizer.`
+                    ? `Recommendations considered your ${result.portfolio_context.network} portfolio allocation locally. No wallet address was sent to an AI model.`
                     : "No wallet is connected, so these recommendations are based only on the claim and evidence."}
                 </p>
                 {result.recommendations.length > 0 ? result.recommendations.map((recommendation, index) => (
