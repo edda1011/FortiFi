@@ -1,6 +1,8 @@
 import { useState } from "react";
 
 import { analyzeClaim } from "./api/claims";
+import Dashboard from "./components/Dashboard.jsx";
+import WalletPanel from "./components/WalletPanel.jsx";
 
 
 function formatPercentage(value) {
@@ -60,6 +62,8 @@ function ModelResult({ result }) {
 
 
 function App() {
+  const [view, setView] = useState("claim");
+
   const [claim, setClaim] = useState("");
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -108,11 +112,55 @@ function App() {
             Financial Information Risk Analysis
           </p>
         </div>
+
+        <nav className="nav-tabs">
+          <button
+            type="button"
+            className={
+              view === "claim"
+                ? "tab tab-active"
+                : "tab"
+            }
+            onClick={() => setView("claim")}
+          >
+            Claim Check
+          </button>
+
+          <button
+            type="button"
+            className={
+              view === "wallet"
+                ? "tab tab-active"
+                : "tab"
+            }
+            onClick={() => setView("wallet")}
+          >
+            Wallet
+          </button>
+
+          <button
+            type="button"
+            className={
+              view === "dashboard"
+                ? "tab tab-active"
+                : "tab"
+            }
+            onClick={() => setView("dashboard")}
+          >
+            Dashboard
+          </button>
+        </nav>
       </header>
 
 
       <main className="main">
 
+        {view === "dashboard" && <Dashboard />}
+
+        {view === "wallet" && <WalletPanel />}
+
+        {view === "claim" && (
+        <>
         <section className="claim-section">
 
           <div className="section-heading">
@@ -286,6 +334,9 @@ function App() {
             </div>
 
           </section>
+        )}
+
+        </>
         )}
 
       </main>

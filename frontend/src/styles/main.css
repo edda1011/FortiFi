@@ -383,3 +383,383 @@ button:disabled {
   }
 
 }
+
+
+/* ============================================================
+   Dashboard
+   ============================================================ */
+
+.dashboard {
+  width: 100%;
+}
+
+
+.dashboard-hero {
+  background: linear-gradient(
+    135deg,
+    #111827 0%,
+    #1e293b 55%,
+    #0f766e 130%
+  );
+
+  border-radius: 20px;
+
+  padding: 40px 36px;
+
+  margin-bottom: 28px;
+
+  color: white;
+
+  position: relative;
+
+  overflow: hidden;
+}
+
+
+.dashboard-hero::after {
+  content: "";
+
+  position: absolute;
+
+  right: -60px;
+  top: -60px;
+
+  width: 240px;
+  height: 240px;
+
+  background: radial-gradient(
+    circle,
+    rgba(16, 185, 129, 0.35) 0%,
+    transparent 70%
+  );
+
+  border-radius: 50%;
+}
+
+
+.dashboard-hero-inner {
+  position: relative;
+
+  z-index: 1;
+}
+
+
+.dashboard-eyebrow {
+  display: inline-block;
+
+  font-size: 12px;
+  font-weight: 700;
+
+  letter-spacing: 0.12em;
+
+  text-transform: uppercase;
+
+  color: #6ee7b7;
+
+  margin-bottom: 12px;
+}
+
+
+.dashboard-hero h2 {
+  margin: 0 0 10px;
+
+  font-size: 30px;
+
+  letter-spacing: -0.02em;
+}
+
+
+.dashboard-hero p {
+  margin: 0;
+
+  max-width: 560px;
+
+  color: #cbd5e1;
+
+  line-height: 1.6;
+}
+
+
+.dash-grid {
+  display: grid;
+
+  grid-template-columns:
+    repeat(2, 1fr);
+
+  gap: 20px;
+}
+
+
+.dash-card {
+  background: white;
+
+  border: 1px solid #e2e8f0;
+
+  border-radius: 16px;
+
+  padding: 24px;
+
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
+}
+
+
+.dash-card-header {
+  display: flex;
+
+  justify-content: space-between;
+
+  align-items: center;
+
+  gap: 12px;
+
+  margin-bottom: 20px;
+}
+
+
+.dash-card-header h3 {
+  margin: 0;
+
+  font-size: 16px;
+}
+
+
+.dash-card-sub {
+  color: #64748b;
+
+  font-size: 13px;
+}
+
+
+.dash-hero {
+  background: linear-gradient(
+    135deg,
+    #f8fafc 0%,
+    #f1f5f9 100%
+  );
+
+  border: 1px solid #e2e8f0;
+
+  border-radius: 12px;
+
+  padding: 20px;
+
+  margin-bottom: 16px;
+}
+
+
+.dash-hero-label {
+  color: #64748b;
+
+  font-size: 13px;
+
+  margin-bottom: 6px;
+}
+
+
+.dash-hero-value {
+  font-size: 34px;
+
+  font-weight: 800;
+
+  letter-spacing: -0.02em;
+
+  color: #0f172a;
+}
+
+
+.dash-stats {
+  display: grid;
+
+  grid-template-columns:
+    repeat(2, 1fr);
+
+  gap: 12px;
+
+  margin-bottom: 16px;
+}
+
+
+.dash-stat {
+  background: #f8fafc;
+
+  border: 1px solid #e2e8f0;
+
+  border-radius: 10px;
+
+  padding: 14px;
+}
+
+
+.dash-stat span {
+  display: block;
+
+  color: #64748b;
+
+  font-size: 12px;
+
+  margin-bottom: 6px;
+}
+
+
+.dash-stat strong {
+  display: block;
+
+  font-size: 18px;
+
+  color: #0f172a;
+}
+
+
+.dash-stat em {
+  display: block;
+
+  font-style: normal;
+
+  color: #94a3b8;
+
+  font-size: 12px;
+
+  margin-top: 4px;
+}
+
+
+.dash-exposure {
+  margin-top: 4px;
+}
+
+
+.dash-exposure-head {
+  display: flex;
+
+  justify-content: space-between;
+
+  align-items: center;
+
+  margin-bottom: 8px;
+
+  font-size: 13px;
+
+  color: #475569;
+}
+
+
+.dash-exposure-head strong {
+  color: #0f172a;
+}
+
+
+.dash-formula {
+  background: #f8fafc;
+
+  border: 1px solid #e2e8f0;
+
+  border-radius: 10px;
+
+  padding: 14px;
+
+  font-size: 14px;
+
+  color: #475569;
+
+  text-align: center;
+}
+
+
+.dash-formula strong {
+  color: #0f172a;
+}
+
+
+.risk-badge {
+  display: inline-block;
+
+  padding: 6px 12px;
+
+  border-radius: 999px;
+
+  font-size: 12px;
+
+  font-weight: 700;
+
+  letter-spacing: 0.03em;
+}
+
+
+.risk-low {
+  background: #dcfce7;
+  color: #166534;
+}
+
+
+.risk-moderate {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+
+.risk-high {
+  background: #ffedd5;
+  color: #9a3412;
+}
+
+
+.risk-critical {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+
+.dashboard-empty {
+  text-align: center;
+
+  padding: 32px 16px;
+
+  color: #64748b;
+}
+
+
+.dashboard-empty-icon {
+  font-size: 32px;
+
+  color: #cbd5e1;
+
+  margin-bottom: 10px;
+}
+
+
+.dashboard-empty h3 {
+  margin: 0 0 6px;
+
+  font-size: 15px;
+
+  color: #334155;
+}
+
+
+.dashboard-empty p {
+  margin: 0;
+
+  font-size: 14px;
+
+  line-height: 1.5;
+}
+
+
+@media (max-width: 700px) {
+
+  .dash-grid {
+    grid-template-columns:
+      1fr;
+  }
+
+
+  .dashboard-hero {
+    padding: 28px 22px;
+  }
+
+
+  .dashboard-hero h2 {
+    font-size: 24px;
+  }
+
+}

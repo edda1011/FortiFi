@@ -1,35 +1,29 @@
 from fastapi import APIRouter, HTTPException
 
-from app.schemas.risk import (
-    RiskAnalyzeRequest,
-    RiskAssessmentResponse,
-)
-from app.services.risk_service import RiskService
+from app.schemas.wallet import WalletCheckRequest, WalletCheckResponse
 from app.services.wallet_service import (
     InvalidAddressError,
+    WalletService,
     WalletUnavailableError,
 )
 
 
 router = APIRouter(
-    tags=["Risk"],
+    tags=["Wallet"],
 )
 
-risk_service = RiskService()
+wallet_service = WalletService()
 
 
 @router.post(
-    "/analyze",
-    response_model=RiskAssessmentResponse,
+    "/check",
+    response_model=WalletCheckResponse,
 )
-async def analyze_risk(
-    request: RiskAnalyzeRequest,
+async def check_wallet(
+    request: WalletCheckRequest,
 ):
     try:
-        return await risk_service.analyze(
-            address=request.address,
-            scenario_downside=request.scenario_downside,
-        )
+        return await wallet_service.check(request.address)
 
     except InvalidAddressError as exc:
         raise HTTPException(
