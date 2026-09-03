@@ -328,7 +328,16 @@ button:disabled {
 .evidence-item:hover { border-color: #0f766e; }
 .evidence-item strong, .evidence-item span { display: block; }
 .evidence-item span { color: #64748b; font-size: 13px; margin-top: 4px; }
-.recommendations ul { margin: 0; padding-left: 20px; color: #475569; line-height: 1.7; }
+.recommendation-section { margin-top: 28px; padding: 24px; border: 1px solid #bfdbfe; border-radius: 12px; background: #f8fbff; }
+.recommendation-heading, .recommendation-card-head, .headline-dialog-actions { display: flex; gap: 12px; align-items: center; justify-content: space-between; }
+.recommendation-heading h3 { margin: 4px 0 0; }
+.recommendation-status { border-radius: 999px; background: #dbeafe; color: #1d4ed8; font-size: 12px; font-weight: 700; padding: 6px 10px; }
+.recommendation-card { margin-top: 14px; padding: 18px; border: 1px solid #dbeafe; border-radius: 10px; background: white; }
+.recommendation-card h4 { margin: 0; color: #0f172a; }
+.recommendation-card-head span { color: #0369a1; font-size: 12px; font-weight: 700; }
+.recommendation-card p, .recommendation-card li, .recommendation-empty { color: #475569; line-height: 1.6; }
+.recommendation-card ol { margin: 12px 0; padding-left: 22px; }
+.recommendation-card small { color: #64748b; }
 
 
 .error {
@@ -518,6 +527,13 @@ button:disabled {
 .news-item span { color: #0f766e; display: block; font-size: 12px; font-weight: 700; margin-bottom: 6px; }
 .news-item strong { font-size: 14px; line-height: 1.4; }
 .news-item p { color: #64748b; font-size: 12px; line-height: 1.45; margin: 8px 0 0; }
+.news-item { width: 100%; text-align: left; background: white; }
+.headline-dialog-backdrop { position: fixed; z-index: 20; inset: 0; display: grid; place-items: center; padding: 20px; background: rgba(15, 23, 42, 0.58); }
+.headline-dialog { width: min(520px, 100%); padding: 26px; border-radius: 16px; background: white; box-shadow: 0 18px 50px rgba(15, 23, 42, 0.3); }
+.headline-dialog h3 { margin: 8px 0; color: #0f172a; }
+.headline-dialog p { color: #475569; line-height: 1.6; }
+.button-secondary { background: #e2e8f0; color: #1e293b; }
+.button-secondary:hover:not(:disabled) { background: #cbd5e1; }
 
 
 .dash-card-header {
