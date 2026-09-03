@@ -45,6 +45,13 @@ class ClaimService:
         recommendations = final.get("recommendations", [])
         if not isinstance(recommendations, list):
             recommendations = []
+        recommendations = [
+            {"title": item, "rationale": "", "steps": [item], "automation_eligible": False, "requires_confirmation": True}
+            if isinstance(item, str)
+            else {**item, "requires_confirmation": True}
+            for item in recommendations
+            if isinstance(item, (str, dict))
+        ]
         result = ClaimAnalysisResponse(
             analysis_id=str(uuid4()), claim=claim, evidence=evidence, consensus=consensus,
             final_assessment=FinalAssessment(

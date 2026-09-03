@@ -1,6 +1,6 @@
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 Verdict = Literal[
@@ -97,6 +97,16 @@ class FinalAssessment(BaseModel):
     analysis: str
 
 
+class Recommendation(BaseModel):
+    """A proposed next step. Execution is deliberately outside this API."""
+
+    title: str
+    rationale: str = ""
+    steps: list[str] = Field(default_factory=list)
+    automation_eligible: bool = False
+    requires_confirmation: bool = True
+
+
 class ClaimAnalysisResponse(BaseModel):
     """The complete evidence → consensus → risk contract for the UI."""
 
@@ -106,7 +116,20 @@ class ClaimAnalysisResponse(BaseModel):
     consensus: ConsensusAnalysis
     final_assessment: FinalAssessment
     portfolio_exposure: PortfolioExposure | None = None
-    recommendations: list[str] = Field(default_factory=list)
+    recommendations: list[Recommendation] = Field(default_factory=list)
+
+    @field_validator("recommendations", mode="before")
+    @classmethod
+    def normalize_legacy_recommendations(cls, value):
+        # Lets analyses saved by the earlier prototype remain readable.
+        if not isinstance(value, list):
+            return []
+        return [
+            {"title": item, "steps": [item]}
+            if isinstance(item, str)
+            else item
+            for item in value
+        ]
 
 
 class NewsItem(BaseModel):
@@ -115,6 +138,7 @@ class NewsItem(BaseModel):
     source: str
     excerpt: str
     published_at: str | None = None
+    is_live: bool = True
 
 
 class ClaimAnalysisRequest(BaseModel):
