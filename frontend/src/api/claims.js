@@ -1,38 +1,35 @@
-const API_BASE_URL = "http://127.0.0.1:8000";
+import { apiFetch } from "./client";
 
 
-export async function analyzeClaim(claim) {
-  const response = await fetch(
-    `${API_BASE_URL}/api/claims/analyze`,
-    {
-      method: "POST",
+function wait(milliseconds) {
+  return new Promise((resolve) => window.setTimeout(resolve, milliseconds));
+}
 
-      headers: {
-        "Content-Type": "application/json",
-      },
 
-      body: JSON.stringify({
-        claim,
-      }),
-    }
-  );
+export async function analyzeClaim(claim, waitForAll, onProgress) {
+  let job = await apiFetch("/api/claims/analysis-jobs", {
+    method: "POST",
+    body: JSON.stringify({
+      claim,
+      wait_for_all: waitForAll,
+    }),
+  });
 
-  if (!response.ok) {
-    let errorMessage =
-      "Failed to analyze the claim.";
+  onProgress(job);
 
-    try {
-      const errorData = await response.json();
-
-      if (typeof errorData.detail === "string") {
-        errorMessage = errorData.detail;
-      }
-    } catch {
-      // Keep the default error message.
-    }
-
-    throw new Error(errorMessage);
+  while (job.status === "queued" || job.status === "running") {
+    await wait(600);
+    job = await apiFetch(`/api/claims/analysis-jobs/${job.job_id}`);
+    onProgress(job);
   }
 
-  return response.json();
+  if (job.status === "failed") {
+    throw new Error(job.error || "The AI models could not complete this analysis.");
+  }
+
+  if (!job.result) {
+    throw new Error("The analysis completed without a result.");
+  }
+
+  return job.result;
 }

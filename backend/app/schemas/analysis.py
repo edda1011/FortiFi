@@ -122,3 +122,29 @@ class ClaimAnalysisRequest(BaseModel):
         min_length=1,
         max_length=10000,
     )
+
+
+class HistorySummary(BaseModel):
+    analysis_id: str
+    claim: str
+    verdict: Verdict
+    credibility_score: float = Field(ge=0.0, le=1.0)
+    confidence: float = Field(ge=0.0, le=1.0)
+    created_at: str
+
+
+class FollowUpRequest(BaseModel):
+    question: str = Field(min_length=1, max_length=2000)
+
+
+class FollowUpEntry(BaseModel):
+    follow_up_id: str
+    question: str
+    answer: str
+    created_at: str
+
+
+class HistoryDetail(BaseModel):
+    analysis: ClaimAnalysisResponse
+    created_at: str
+    follow_ups: list[FollowUpEntry] = Field(default_factory=list)
