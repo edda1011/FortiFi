@@ -27,9 +27,10 @@ class GonkaService:
     async def analyze_claim(
         self,
         claim: str,
+        evidence: list[dict] | None = None,
     ) -> list[ModelAnalysis]:
 
-        user_prompt = build_claim_prompt(claim)
+        user_prompt = build_claim_prompt(claim, evidence)
 
         tasks = [
             self._analyze_with_model(
@@ -99,4 +100,17 @@ class GonkaService:
         return ModelAnalysis(
             model=display_name,
             **raw_result,
+        )
+
+    async def finalize_claim(self, claim: str, consensus, evidence: list[dict]) -> dict:
+        finalizer_system = """You are FortiFi's final assessment editor. Return ONLY valid JSON.
+Use only the supplied consensus and evidence. Never invent facts, sources, prices, or calculations.
+The JSON must have exactly: verdict (LIKELY_TRUE, LIKELY_FALSE, or UNCERTAIN), analysis (string), recommendations (array of 2-3 cautious strings)."""
+        prompt = f"""Synthesize a final FortiFi assessment. Return ONLY JSON with keys verdict, analysis, recommendations.
+CLAIM: {claim}
+DETERMINISTIC CONSENSUS: {consensus.model_dump_json()}
+EVIDENCE: {evidence}
+Recommendations must be cautious, actionable considerations, never financial advice. Do not alter consensus scores or invent facts."""
+        return await self.client.analyze_claim(
+            model=self.models["DeepSeek-V4-Flash"], system_prompt=finalizer_system, user_prompt=prompt
         )

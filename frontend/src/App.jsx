@@ -62,7 +62,7 @@ function ModelResult({ result }) {
 
 
 function App() {
-  const [view, setView] = useState("claim");
+  const [view, setView] = useState("dashboard");
 
   const [claim, setClaim] = useState("");
   const [result, setResult] = useState(null);
@@ -107,13 +107,23 @@ function App() {
       <header className="header">
         <div>
           <h1>FortiFi</h1>
-
-          <p>
-            Financial Information Risk Analysis
-          </p>
         </div>
 
+      
+
         <nav className="nav-tabs">
+          <button
+            type="button"
+            className={
+              view === "dashboard"
+                ? "tab tab-active"
+                : "tab"
+            }
+            onClick={() => setView("dashboard")}
+          >
+            Dashboard
+          </button>
+          
           <button
             type="button"
             className={
@@ -138,17 +148,7 @@ function App() {
             Wallet
           </button>
 
-          <button
-            type="button"
-            className={
-              view === "dashboard"
-                ? "tab tab-active"
-                : "tab"
-            }
-            onClick={() => setView("dashboard")}
-          >
-            Dashboard
-          </button>
+          
         </nav>
       </header>
 
@@ -240,13 +240,13 @@ function App() {
                 <h2>Analysis Result</h2>
 
                 <p>
-                  {result.model_results.length} of 3
+                  {result.consensus.model_results.length} of 3
                   AI models responded.
                 </p>
               </div>
 
               <VerdictBadge
-                verdict={result.verdict}
+                verdict={result.final_assessment.verdict}
               />
             </div>
 
@@ -260,7 +260,7 @@ function App() {
 
                 <strong>
                   {formatPercentage(
-                    result.credibility_score
+                    result.consensus.credibility_score
                   )}
                 </strong>
               </div>
@@ -273,7 +273,7 @@ function App() {
 
                 <strong>
                   {formatPercentage(
-                    result.confidence
+                    result.consensus.confidence
                   )}
                 </strong>
               </div>
@@ -285,7 +285,7 @@ function App() {
                 </span>
 
                 <strong>
-                  {result.market_impact}
+                  {result.consensus.market_impact}
                 </strong>
               </div>
 
@@ -297,7 +297,7 @@ function App() {
 
                 <strong>
                   {formatPercentage(
-                    result.disagreement
+                    result.consensus.disagreement
                   )}
                 </strong>
               </div>
@@ -310,7 +310,7 @@ function App() {
               <h3>Consensus Assessment</h3>
 
               <p>
-                {result.reasoning_summary}
+                {result.final_assessment.analysis}
               </p>
 
             </div>
@@ -322,13 +322,55 @@ function App() {
                 Individual Model Results
               </h3>
 
-              {result.model_results.map(
+              {result.consensus.model_results.map(
                 (modelResult) => (
                   <ModelResult
                     key={modelResult.model}
                     result={modelResult}
                   />
                 )
+              )}
+
+              {result.evidence.length > 0 && (
+                <div className="evidence-list">
+                  <h3>Retrieved Evidence</h3>
+                  {result.evidence.map((item) => (
+                    <a
+                      key={item.url}
+                      href={item.url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="evidence-item"
+                    >
+                      <strong>{item.title}</strong>
+                      <span>{item.source}</span>
+                    </a>
+                  ))}
+                </div>
+              )}
+
+              {result.portfolio_exposure && (
+                <div className="summary exposure-result">
+                  <h3>Portfolio Scenario Exposure</h3>
+                  <p>
+                    {result.portfolio_exposure.portfolio_percentage}% ETH exposure ×{" "}
+                    {result.portfolio_exposure.scenario_change}% scenario ={" "}
+                    <strong>
+                      {result.portfolio_exposure.estimated_portfolio_impact}% estimated portfolio impact.
+                    </strong>
+                  </p>
+                </div>
+              )}
+
+              {result.recommendations.length > 0 && (
+                <div className="summary recommendations">
+                  <h3>Considerations</h3>
+                  <ul>
+                    {result.recommendations.map((recommendation) => (
+                      <li key={recommendation}>{recommendation}</li>
+                    ))}
+                  </ul>
+                </div>
               )}
 
             </div>

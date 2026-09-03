@@ -3,6 +3,7 @@ from typing import Optional
 from pydantic import BaseModel
 
 from app.schemas.risk import RiskAssessmentResponse
+from app.schemas.analysis import ClaimAnalysisResponse
 from app.schemas.wallet import WalletCheckResponse
 
 
@@ -22,3 +23,5 @@ class DashboardSummary(BaseModel):
     has_risk: bool
 
     risk: Optional[RiskAssessmentResponse] = None
+
+    latest_analysis: Optional[ClaimAnalysisResponse] = None

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 
-import { fetchDashboard } from "../api/dashboard";
+import { fetchDashboard, fetchDashboardNews } from "../api/dashboard";
 
 
 function formatUsd(value) {
@@ -173,9 +173,21 @@ function RiskCard({ risk }) {
 }
 
 
-function AIConsensusCard() {
-  // Placeholder for the AI consensus summary. The claim/history
-  // milestone will populate this with real analysis data.
+function AIConsensusCard({ analysis }) {
+  if (analysis) {
+    const consensus = analysis.consensus;
+    return (
+      <section className="dash-card">
+        <div className="dash-card-header"><h3>Latest AI Consensus</h3><RiskBadge level={consensus.market_impact} /></div>
+        <p className="claim-preview">“{analysis.claim}”</p>
+        <div className="dash-stats">
+          <div className="dash-stat"><span>Verdict</span><strong>{analysis.final_assessment.verdict.replace("_", " ")}</strong><em>{(consensus.confidence * 100).toFixed(0)}% confidence</em></div>
+          <div className="dash-stat"><span>Agreement</span><strong>{((1 - consensus.disagreement) * 100).toFixed(0)}%</strong><em>{analysis.evidence.length} sources retained</em></div>
+        </div>
+        <p className="dashboard-analysis">{analysis.final_assessment.analysis}</p>
+      </section>
+    );
+  }
   return (
     <section className="dash-card">
       <div className="dash-card-header">
@@ -188,6 +200,15 @@ function AIConsensusCard() {
       />
     </section>
   );
+}
+
+function NewsCard({ news }) {
+  return <section className="dash-card news-card">
+    <div className="dash-card-header"><h3>Market News</h3><span className="dash-card-sub">Live search</span></div>
+    {news.length === 0 ? <EmptyState title="News is unavailable" message="Try again when the search service is reachable." /> : <div className="news-list">{news.map((item) => (
+      <a className="news-item" key={item.url} href={item.url} target="_blank" rel="noreferrer"><span>{item.source}</span><strong>{item.title}</strong><p>{item.excerpt}</p></a>
+    ))}</div>}
+  </section>;
 }
 
 
@@ -213,16 +234,18 @@ function Dashboard() {
   const [summary, setSummary] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [news, setNews] = useState([]);
 
   useEffect(() => {
     let cancelled = false;
 
     async function load() {
       try {
-        const data = await fetchDashboard();
+        const [data, headlines] = await Promise.all([fetchDashboard(), fetchDashboardNews().catch(() => [])]);
 
         if (!cancelled) {
           setSummary(data);
+          setNews(headlines);
         }
       } catch (err) {
         if (!cancelled) {
@@ -276,8 +299,9 @@ function Dashboard() {
         <div className="dash-grid">
           <PortfolioCard wallet={summary?.wallet} />
           <RiskCard risk={summary?.risk} />
-          <AIConsensusCard />
+          <AIConsensusCard analysis={summary?.latest_analysis} />
           <ProtectionCard />
+          <NewsCard news={news} />
         </div>
       )}
     </div>

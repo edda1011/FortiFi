@@ -2,8 +2,9 @@ from fastapi import APIRouter, HTTPException
 
 from app.schemas.analysis import (
     ClaimAnalysisRequest,
-    ConsensusAnalysis,
+    ClaimAnalysisResponse,
 )
+from app.services.analysis_store import AnalysisStore
 from app.services.claim_service import ClaimService
 
 
@@ -16,7 +17,7 @@ claim_service = ClaimService()
 
 @router.post(
     "/analyze",
-    response_model=ConsensusAnalysis,
+    response_model=ClaimAnalysisResponse,
 )
 async def analyze_claim(
     request: ClaimAnalysisRequest,
@@ -37,3 +38,12 @@ async def analyze_claim(
             status_code=500,
             detail=str(exc),
         ) from exc
+
+
+@router.get(
+    "/history",
+    response_model=list[ClaimAnalysisResponse],
+)
+async def claim_history(limit: int = 10):
+    """Recent completed analyses, including the evidence package used."""
+    return AnalysisStore().recent(limit=max(1, min(limit, 50)))
