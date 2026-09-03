@@ -1,9 +1,13 @@
 import asyncio
+import logging
 from uuid import uuid4
 
 from app.schemas.analysis import ModelAnalysis
 from app.schemas.analysis_job import AnalysisJobResponse, ModelProgress
 from app.services.claim_service import ClaimService
+
+
+logger = logging.getLogger(__name__)
 
 
 class AnalysisJobNotFoundError(ValueError):
@@ -124,12 +128,23 @@ class AnalysisJobService:
             progress.error = (
                 f"No response within {self.FAST_TIMEOUT_SECONDS} seconds."
             )
+            logger.warning(
+                "%s timed out after %s seconds.",
+                display_name,
+                self.FAST_TIMEOUT_SECONDS,
+            )
         except asyncio.CancelledError:
             progress.status = "cancelled"
             raise
-        except Exception:
+        except Exception as exc:
             progress.status = "failed"
             progress.error = "This model could not complete the analysis."
+            logger.warning(
+                "%s failed: %s: %s",
+                display_name,
+                type(exc).__name__,
+                exc,
+            )
         return None
 
     @staticmethod

@@ -162,7 +162,7 @@ def test_complete_job_waits_for_all_three_models(tmp_path: Path):
     assert all(item.status == "completed" for item in job.models)
 
 
-def test_fast_job_fails_when_fewer_than_two_models_finish(tmp_path: Path):
+def test_fast_job_fails_when_fewer_than_two_models_finish(tmp_path: Path, caplog):
     async def run():
         service = AnalysisJobService()
         service.FAST_TIMEOUT_SECONDS = 0.02
@@ -170,6 +170,8 @@ def test_fast_job_fails_when_fewer_than_two_models_finish(tmp_path: Path):
         service.claim_service.search_service.search_evidence = AsyncMock(return_value=[])
 
         async def analyze(display_name, model, claim, evidence):
+            if display_name == "MiniMax-M2.7":
+                raise RuntimeError("upstream unavailable")
             await asyncio.sleep(
                 0.001 if display_name == "DeepSeek-V4-Flash" else 0.1
             )
@@ -185,5 +187,7 @@ def test_fast_job_fails_when_fewer_than_two_models_finish(tmp_path: Path):
 
     assert job.status == "failed"
     assert sum(item.status == "completed" for item in job.models) == 1
-    assert sum(item.status == "timed_out" for item in job.models) == 2
+    assert sum(item.status == "failed" for item in job.models) == 1
+    assert sum(item.status == "timed_out" for item in job.models) == 1
     assert job.result is None
+    assert "MiniMax-M2.7 failed: RuntimeError: upstream unavailable" in caplog.text

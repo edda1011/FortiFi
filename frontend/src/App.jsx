@@ -88,7 +88,7 @@ function AnalysisProgress({ progress }) {
           <div className="model-progress-row" key={model.model}>
             <span className={`model-status-dot model-status-${model.status}`} />
             <strong>{model.model}</strong>
-            <span>{model.status.replace("_", " ")}</span>
+            <span>{model.error || model.status.replace("_", " ")}</span>
           </div>
         ))}
       </div>
@@ -119,6 +119,12 @@ function App() {
   const fastConsensusFailed = Boolean(
     error && progress && !progress.wait_for_all && completedModels < 2
   );
+  const retryableAnalysisFailure = Boolean(
+    error && progress?.status === "failed"
+  );
+  const failedModelNames = progress?.models
+    .filter((model) => ["failed", "timed_out"].includes(model.status))
+    .map((model) => model.model) ?? [];
 
 
   async function handleSubmit(event) {
@@ -303,20 +309,24 @@ function App() {
 
         {error && (
           <section
-            className={fastConsensusFailed ? "error error-retry" : "error"}
+            className={retryableAnalysisFailure ? "error error-retry" : "error"}
             role="alert"
           >
             <strong>
               {fastConsensusFailed
                 ? "Fast consensus could not be completed"
+                : retryableAnalysisFailure && progress.wait_for_all
+                  ? "Complete analysis could not be completed"
                 : "Analysis failed"}
             </strong>
             <p>
               {fastConsensusFailed
                 ? "Fewer than 2 AI models responded within 35 seconds. Gonka may be busy—please try the analysis again."
+                : retryableAnalysisFailure && progress.wait_for_all && failedModelNames.length
+                  ? `${failedModelNames.join(", ")} did not complete. Retry to request all three models again.`
                 : error}
             </p>
-            {fastConsensusFailed && (
+            {retryableAnalysisFailure && (
               <button type="button" onClick={() => handleSubmit()}>
                 Retry Analysis
               </button>
