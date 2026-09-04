@@ -5,6 +5,7 @@ import {
   fetchHistory,
   fetchHistoryDetail,
 } from "../api/history";
+import ReasoningTrace from "./ReasoningTrace.jsx";
 
 
 function formatPercentage(value) {
@@ -120,12 +121,20 @@ function HistoryDetail({ detail, loading, onBack, onFollowUp }) {
       </section>
 
       <section className="history-request-ids">
-        <h3>Gonka inference requests</h3>
+        <h3>Individual model reasoning</h3>
         {analysis.consensus.model_results.map((result) => (
-          <div key={result.model}>
-            <span>{result.model}</span>
-            <code>{result.request_id || "Not available"}</code>
-          </div>
+          <article className="history-model-result" key={result.model}>
+            <div className="history-model-heading">
+              <h4>{result.model}</h4>
+              <VerdictBadge verdict={result.verdict} />
+            </div>
+            <p>{result.reasoning_summary}</p>
+            <ReasoningTrace result={result} />
+            <div className="history-request-id">
+              <span>Gonka Request ID</span>
+              <code>{result.request_id || "Not available"}</code>
+            </div>
+          </article>
         ))}
       </section>
 

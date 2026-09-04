@@ -3,6 +3,7 @@ import { useState } from "react";
 import { analyzeClaim } from "./api/claims";
 import Dashboard from "./components/Dashboard.jsx";
 import HistoryPanel from "./components/HistoryPanel.jsx";
+import ReasoningTrace from "./components/ReasoningTrace.jsx";
 import WalletPanel from "./components/WalletPanel.jsx";
 
 
@@ -57,6 +58,8 @@ function ModelResult({ result }) {
       <p className="model-reasoning">
         {result.reasoning_summary}
       </p>
+
+      <ReasoningTrace result={result} />
 
       <p className="model-request-id">
         <span>Gonka Request ID</span>
@@ -261,7 +264,7 @@ function App() {
           <form onSubmit={handleSubmit}>
 
             <label htmlFor="claim">
-              Financial claim
+              Financial claim or article URL
             </label>
 
             <textarea
@@ -270,7 +273,7 @@ function App() {
               onChange={(event) =>
                 setClaim(event.target.value)
               }
-              placeholder="Paste a financial claim, headline, or statement here..."
+              placeholder="Paste a financial claim, headline, statement, or public article URL..."
               disabled={loading}
               maxLength={10000}
             />
