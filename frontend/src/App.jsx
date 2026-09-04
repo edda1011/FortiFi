@@ -3,6 +3,7 @@ import { useState } from "react";
 import { analyzeClaim } from "./api/claims";
 import Dashboard from "./components/Dashboard.jsx";
 import HistoryPanel from "./components/HistoryPanel.jsx";
+import ReasoningTrace from "./components/ReasoningTrace.jsx";
 import WalletPanel from "./components/WalletPanel.jsx";
 
 
@@ -56,6 +57,13 @@ function ModelResult({ result }) {
 
       <p className="model-reasoning">
         {result.reasoning_summary}
+      </p>
+
+      <ReasoningTrace result={result} />
+
+      <p className="model-request-id">
+        <span>Gonka Request ID</span>
+        <code>{result.request_id || "Not available"}</code>
       </p>
     </div>
   );
@@ -256,7 +264,7 @@ function App() {
           <form onSubmit={handleSubmit}>
 
             <label htmlFor="claim">
-              Financial claim
+              Financial claim or article URL
             </label>
 
             <textarea
@@ -265,7 +273,7 @@ function App() {
               onChange={(event) =>
                 setClaim(event.target.value)
               }
-              placeholder="Paste a financial claim, headline, or statement here..."
+              placeholder="Paste a financial claim, headline, statement, or public article URL..."
               disabled={loading}
               maxLength={10000}
             />
@@ -321,7 +329,7 @@ function App() {
             </strong>
             <p>
               {fastConsensusFailed
-                ? "Fewer than 2 AI models responded within 35 seconds. Gonka may be busy—please try the analysis again."
+                ? "Fewer than 2 AI models completed within the 55-second total limit. Gonka may be busy—please try the analysis again."
                 : retryableAnalysisFailure && progress.wait_for_all && failedModelNames.length
                   ? `${failedModelNames.join(", ")} did not complete. Retry to request all three models again.`
                 : error}

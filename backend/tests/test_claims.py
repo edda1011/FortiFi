@@ -15,6 +15,7 @@ from app.services.analysis_job_service import AnalysisJobService
 def _analysis(analysis_id: str = "analysis-1") -> ClaimAnalysisResponse:
     model = ModelAnalysis(
         model="Test model",
+        request_id="chatcmpl-test-123",
         credibility_score=0.6,
         confidence=0.7,
         verdict="UNCERTAIN",
@@ -55,7 +56,15 @@ def test_history_store_lists_and_reads_saved_analysis(tmp_path: Path):
     assert summaries[0].credibility_score == 0.6
     assert detail is not None
     assert detail.analysis.claim == result.claim
+    assert detail.analysis.consensus.model_results[0].request_id == "chatcmpl-test-123"
     assert detail.follow_ups == []
+
+
+def test_model_analysis_accepts_legacy_result_without_request_id():
+    legacy = _analysis().consensus.model_results[0].model_dump()
+    legacy.pop("request_id")
+
+    assert ModelAnalysis.model_validate(legacy).request_id is None
 
 
 def test_history_store_persists_follow_up(tmp_path: Path):
@@ -162,16 +171,51 @@ def test_complete_job_waits_for_all_three_models(tmp_path: Path):
     assert all(item.status == "completed" for item in job.models)
 
 
+def test_complete_job_retries_one_transient_model_failure(tmp_path: Path, caplog):
+    async def run():
+        service = AnalysisJobService()
+        service.claim_service.store = AnalysisStore(tmp_path / "retry.db")
+        service.claim_service.search_service.search_evidence = AsyncMock(return_value=[])
+        attempts = {"Kimi-K2.6": 0}
+
+        async def analyze(display_name, model, claim, evidence):
+            if display_name == "Kimi-K2.6":
+                attempts[display_name] += 1
+                if attempts[display_name] == 1:
+                    raise ValueError(
+                        "Gonka returned an empty response for model: moonshotai/Kimi-K2.6"
+                    )
+            result = _analysis().consensus.model_results[0].model_copy()
+            result.model = display_name
+            return result
+
+        service.claim_service.gonka_service.analyze_with_model = analyze
+        created = service.create("ETH may fall 20%", wait_for_all=True)
+        job = await _wait_for_job(service, created.job_id)
+        return job, attempts
+
+    job, attempts = asyncio.run(run())
+
+    assert job.status == "completed"
+    assert attempts["Kimi-K2.6"] == 2
+    assert all(item.status == "completed" for item in job.models)
+    assert "Kimi-K2.6 attempt 1 failed; retrying once" in caplog.text
+
+
 def test_fast_job_fails_when_fewer_than_two_models_finish(tmp_path: Path, caplog):
     async def run():
         service = AnalysisJobService()
         service.FAST_TIMEOUT_SECONDS = 0.02
+        service.FAST_RETRY_TIMEOUT_SECONDS = 0.02
         service.claim_service.store = AnalysisStore(tmp_path / "fast-failed.db")
         service.claim_service.search_service.search_evidence = AsyncMock(return_value=[])
+        attempts = {"Kimi-K2.6": 0}
 
         async def analyze(display_name, model, claim, evidence):
             if display_name == "MiniMax-M2.7":
                 raise RuntimeError("upstream unavailable")
+            if display_name == "Kimi-K2.6":
+                attempts[display_name] += 1
             await asyncio.sleep(
                 0.001 if display_name == "DeepSeek-V4-Flash" else 0.1
             )
@@ -181,13 +225,14 @@ def test_fast_job_fails_when_fewer_than_two_models_finish(tmp_path: Path, caplog
 
         service.claim_service.gonka_service.analyze_with_model = analyze
         created = service.create("ETH may fall 20%", wait_for_all=False)
-        return await _wait_for_job(service, created.job_id)
+        return await _wait_for_job(service, created.job_id), attempts
 
-    job = asyncio.run(run())
+    job, attempts = asyncio.run(run())
 
     assert job.status == "failed"
     assert sum(item.status == "completed" for item in job.models) == 1
     assert sum(item.status == "failed" for item in job.models) == 1
     assert sum(item.status == "timed_out" for item in job.models) == 1
+    assert attempts["Kimi-K2.6"] == 2
     assert job.result is None
     assert "MiniMax-M2.7 failed: RuntimeError: upstream unavailable" in caplog.text

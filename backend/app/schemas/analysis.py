@@ -18,6 +18,7 @@ MarketImpact = Literal[
 
 class ModelAnalysis(BaseModel):
     model: str
+    request_id: str | None = None
 
     credibility_score: float = Field(
         ge=0.0,
