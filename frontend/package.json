@@ -9,6 +9,8 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@thetanuts-finance/thetanuts-client": "0.2.3",
+    "ethers": "^6.17.0",
     "react": "^19.1.1",
     "react-dom": "^19.1.1"
   },

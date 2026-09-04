@@ -4,6 +4,7 @@ import { analyzeClaim } from "./api/claims";
 import Dashboard from "./components/Dashboard.jsx";
 import HistoryPanel from "./components/HistoryPanel.jsx";
 import ReasoningTrace from "./components/ReasoningTrace.jsx";
+import ThetanutsHedgePanel from "./components/ThetanutsHedgePanel.jsx";
 import WalletPanel from "./components/WalletPanel.jsx";
 
 
@@ -510,6 +511,11 @@ function App() {
                   </article>
                 )) : <p className="recommendation-empty">No next-step plan was generated. Review the evidence and model assessment before taking action.</p>}
               </section>
+
+              <ThetanutsHedgePanel
+                claim={result.claim}
+                exposure={result.portfolio_exposure}
+              />
 
             </div>
 

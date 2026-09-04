@@ -481,6 +481,98 @@ button:disabled {
 .recommendation-card ol { margin: 12px 0; padding-left: 22px; }
 .recommendation-card small { color: #64748b; }
 
+.thetanuts-hedge {
+  margin-top: 28px;
+  padding: 24px;
+  border: 1px solid #99f6e4;
+  border-radius: 12px;
+  background: #f0fdfa;
+}
+
+.thetanuts-heading,
+.hedge-preview-head,
+.hedge-contract-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.thetanuts-heading h3,
+.hedge-preview-head h4 {
+  margin: 4px 0 0;
+}
+
+.thetanuts-hedge > p,
+.hedge-disclosure {
+  color: #475569;
+  line-height: 1.6;
+}
+
+.thetanuts-network,
+.hedge-preview-head > strong {
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: #ccfbf1;
+  color: #0f766e;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.hedge-preview {
+  margin-top: 18px;
+  padding: 20px;
+  border: 1px solid #99f6e4;
+  border-radius: 10px;
+  background: #ffffff;
+}
+
+.hedge-preview-head span,
+.hedge-preview-grid span,
+.hedge-contract-meta span {
+  color: #64748b;
+  font-size: 12px;
+}
+
+.hedge-preview-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 18px;
+}
+
+.hedge-preview-grid > div {
+  padding: 12px;
+  border-radius: 6px;
+  background: #f8fafc;
+}
+
+.hedge-preview-grid span,
+.hedge-preview-grid strong {
+  display: block;
+}
+
+.hedge-preview-grid strong {
+  margin-top: 5px;
+}
+
+.hedge-contract-meta {
+  margin: 16px 0;
+  padding-top: 16px;
+  border-top: 1px solid #e2e8f0;
+}
+
+.hedge-contract-meta code {
+  min-inline-size: 0;
+  overflow-wrap: anywhere;
+  color: #475569;
+  font-size: 12px;
+}
+
+.thetanuts-error {
+  color: #991b1b !important;
+}
+
 
 .error {
   border-color: #fecaca;
@@ -762,6 +854,7 @@ button:disabled {
   border: 1px solid #e2e8f0;
   border-radius: 16px;
   min-height: 520px;
+  min-width: 0;
   padding: 28px;
 }
 
@@ -804,6 +897,7 @@ button:disabled {
 .history-list {
   display: grid;
   margin-top: 8px;
+  min-width: 0;
 }
 
 .history-row {
@@ -811,6 +905,7 @@ button:disabled {
   border-bottom: 1px solid #e2e8f0;
   border-radius: 0;
   color: #0f172a;
+  min-width: 0;
   padding: 20px 4px;
   text-align: left;
 }
@@ -839,10 +934,15 @@ button:disabled {
 }
 
 .history-row > strong {
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
   display: block;
+  display: -webkit-box;
   font-size: 16px;
   line-height: 1.5;
   margin-bottom: 9px;
+  overflow: hidden;
+  overflow-wrap: anywhere;
 }
 
 .history-empty {
@@ -892,6 +992,7 @@ button:disabled {
   font-size: 25px;
   line-height: 1.35;
   max-width: 30ch;
+  overflow-wrap: anywhere;
 }
 
 .history-score-strip {
@@ -1153,7 +1254,7 @@ button:disabled {
   display: grid;
 
   grid-template-columns:
-    repeat(2, 1fr);
+    repeat(2, minmax(0, 1fr));
 
   gap: 20px;
 }
@@ -1166,19 +1267,21 @@ button:disabled {
 
   border-radius: 16px;
 
+  min-width: 0;
+
   padding: 24px;
 
   box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
 }
 
 .dash-grid .news-card { grid-column: 1 / -1; }
-.claim-preview { color: #334155; line-height: 1.5; margin: 0 0 16px; }
+.claim-preview { color: #334155; line-height: 1.5; margin: 0 0 16px; overflow-wrap: anywhere; }
 .dashboard-analysis { color: #475569; line-height: 1.5; margin-bottom: 0; }
-.news-list { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+.news-list { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
 .news-item { display: block; border: 1px solid #e2e8f0; border-radius: 10px; color: #17202a; padding: 14px; text-decoration: none; }
 .news-item:hover { border-color: #0f766e; }
 .news-item span { color: #0f766e; display: block; font-size: 12px; font-weight: 700; margin-bottom: 6px; }
-.news-item strong { font-size: 14px; line-height: 1.4; }
+.news-item strong { font-size: 14px; line-height: 1.4; overflow-wrap: anywhere; }
 .news-item p { color: #64748b; font-size: 12px; line-height: 1.45; margin: 8px 0 0; }
 .news-item { width: 100%; text-align: left; background: white; }
 .headline-dialog-backdrop { position: fixed; z-index: 20; inset: 0; display: grid; place-items: center; padding: 20px; background: rgba(15, 23, 42, 0.58); }

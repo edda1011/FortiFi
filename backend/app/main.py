@@ -4,6 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.api.claims import router as claims_router
 from app.api.routes.dashboard import router as dashboard_router
 from app.api.routes.risk import router as risk_router
+from app.api.thetanuts import router as thetanuts_router
 from app.api.wallet import router as wallet_router
 
 
@@ -52,6 +53,13 @@ app.include_router(
     dashboard_router,
     prefix="/api/dashboard",
     tags=["Dashboard"],
+)
+
+
+app.include_router(
+    thetanuts_router,
+    prefix="/api/thetanuts",
+    tags=["Thetanuts"],
 )
 
 
