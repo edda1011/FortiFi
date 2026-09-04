@@ -1,6 +1,7 @@
 import { useState } from "react";
 
 import { analyzeClaim } from "./api/claims";
+import { checkWallet, getWalletHistory } from "./api/wallet";
 import Dashboard from "./components/Dashboard.jsx";
 import HistoryPanel from "./components/HistoryPanel.jsx";
 import ReasoningTrace from "./components/ReasoningTrace.jsx";
@@ -121,6 +122,55 @@ function App() {
   const [error, setError] = useState("");
   const [waitForAll, setWaitForAll] = useState(false);
   const [progress, setProgress] = useState(null);
+
+  // Wallet state lives here (not in WalletPanel) so it survives
+  // navigating to other pages and back.
+  const [walletAddress, setWalletAddress] = useState("");
+  const [walletResult, setWalletResult] = useState(null);
+  const [walletHistory, setWalletHistory] = useState([]);
+  const [walletLoading, setWalletLoading] = useState(false);
+  const [walletError, setWalletError] = useState("");
+
+  async function handleWalletSubmit(event) {
+    event.preventDefault();
+
+    const trimmedAddress = walletAddress.trim();
+
+    if (!trimmedAddress) {
+      setWalletError("Please enter a wallet address.");
+      return;
+    }
+
+    setWalletLoading(true);
+    setWalletError("");
+    setWalletResult(null);
+    setWalletHistory([]);
+
+    try {
+      const snapshot = await checkWallet(trimmedAddress);
+
+      setWalletResult(snapshot);
+
+      // After a successful check, also load the saved history for
+      // this address (the snapshot we just saved is included).
+      try {
+        const historyData = await getWalletHistory(snapshot.address);
+        setWalletHistory(historyData.snapshots ?? []);
+      } catch {
+        // History is a nice-to-have; don't fail the whole view if
+        // it can't be loaded.
+        setWalletHistory([]);
+      }
+    } catch (err) {
+      setWalletError(
+        err instanceof Error
+          ? err.message
+          : "Something went wrong."
+      );
+    } finally {
+      setWalletLoading(false);
+    }
+  }
 
   const completedModels = progress?.models.filter(
     (model) => model.status === "completed"
@@ -243,7 +293,17 @@ function App() {
 
         {view === "dashboard" && <Dashboard onCheckHeadline={handleHeadlineForClaimCheck} />}
 
-        {view === "wallet" && <WalletPanel />}
+        {view === "wallet" && (
+          <WalletPanel
+            address={walletAddress}
+            setAddress={setWalletAddress}
+            result={walletResult}
+            history={walletHistory}
+            loading={walletLoading}
+            error={walletError}
+            onSubmit={handleWalletSubmit}
+          />
+        )}
 
         {view === "history" && <HistoryPanel />}
 
