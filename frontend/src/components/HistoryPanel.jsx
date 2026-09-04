@@ -10,6 +10,7 @@ import {
   restoreHistory,
 } from "../api/history";
 import ReasoningTrace from "./ReasoningTrace.jsx";
+import ProtectionRecordPanel from "./ProtectionRecordPanel.jsx";
 
 
 function formatPercentage(value) {
@@ -63,7 +64,10 @@ function HistoryList({ items, selectedId, onSelect }) {
           onClick={() => onSelect(item.analysis_id)}
         >
           <span className="history-row-top">
-            <VerdictBadge verdict={item.verdict} />
+            <span className="history-row-badges">
+              <VerdictBadge verdict={item.verdict} />
+              {item.anchored && <span className="sui-anchor-badge">Anchored on Sui</span>}
+            </span>
             <time>{formatDate(item.created_at)}</time>
           </span>
           <strong>{item.claim}</strong>
@@ -81,7 +85,7 @@ function HistoryList({ items, selectedId, onSelect }) {
 }
 
 
-function HistoryDetail({ detail, loading, onBack, onDelete, onFollowUp, onAnalyzeWithAll }) {
+function HistoryDetail({ detail, loading, account, onBack, onDelete, onFollowUp, onAnalyzeWithAll, onAnchored }) {
   const [question, setQuestion] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
@@ -196,6 +200,13 @@ function HistoryDetail({ detail, loading, onBack, onDelete, onFollowUp, onAnalyz
         </section>
       )}
 
+      <ProtectionRecordPanel
+        analysisId={analysis.analysis_id}
+        account={account}
+        initialRecord={detail.protection_record}
+        onAnchored={onAnchored}
+      />
+
       <section className="follow-up-section">
         <div className="follow-up-heading">
           <h3>Ask about this assessment</h3>
@@ -241,7 +252,7 @@ function HistoryDetail({ detail, loading, onBack, onDelete, onFollowUp, onAnalyz
 }
 
 
-function HistoryPanel({ connected, onAnalyzeWithAll }) {
+function HistoryPanel({ connected, account, onAnalyzeWithAll }) {
   const [items, setItems] = useState([]);
   const [selectedId, setSelectedId] = useState(null);
   const [detail, setDetail] = useState(null);
@@ -307,6 +318,14 @@ function HistoryPanel({ connected, onAnalyzeWithAll }) {
       ...current,
       follow_ups: [...current.follow_ups, entry],
     }));
+  }
+
+  function markSelectedAnchored(record) {
+    setDetail((current) => ({ ...current, protection_record: record }));
+    setItems((current) => current.map((item) => (
+      item.analysis_id === selectedId ? { ...item, anchored: true } : item
+    )));
+    window.dispatchEvent(new Event("fortifi:history-changed"));
   }
 
   async function removeSelectedHistory() {
@@ -408,10 +427,12 @@ function HistoryPanel({ connected, onAnalyzeWithAll }) {
         <HistoryDetail
           detail={detail}
           loading={detailLoading}
+          account={account}
           onBack={() => { setSelectedId(null); setDetail(null); setError(""); }}
           onDelete={removeSelectedHistory}
           onFollowUp={submitFollowUp}
           onAnalyzeWithAll={onAnalyzeWithAll}
+          onAnchored={markSelectedAnchored}
         />
       ) : (
         <>

@@ -43,6 +43,26 @@ def test_signed_report_is_submitted_to_sui(tmp_path):
     service.sui.record.assert_called_once()
 
 
+def test_anchored_report_is_persisted_and_not_submitted_twice(tmp_path):
+    account = Account.create()
+    service = configured_service(tmp_path, account)
+    _, report_hash, message = service.prepare("analysis-1", account.address)
+    signature = Account.sign_message(
+        encode_defunct(text=message), account.key
+    ).signature.hex()
+
+    first = service.record("analysis-1", account.address, signature)
+    second = service.record("analysis-1", account.address, "unused")
+    status = service.status("analysis-1", account.address)
+
+    assert first == second == (report_hash, "sui-digest", "0xrecord")
+    assert status.sui_digest == "sui-digest"
+    assert status.anchored_at is not None
+    assert service.store.list_history(account.address)[0].anchored is True
+    assert service.store.get("analysis-1", account.address).protection_record == status
+    service.sui.record.assert_called_once()
+
+
 def test_changed_wallet_fails_signature_verification(tmp_path):
     owner = Account.create()
     signer = Account.create()

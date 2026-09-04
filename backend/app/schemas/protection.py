@@ -21,3 +21,4 @@ class ProtectionRecordResponse(BaseModel):
     sui_digest: str
     sui_object_id: str | None = None
     explorer_url: str
+    anchored_at: str | None = None

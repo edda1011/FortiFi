@@ -9,6 +9,11 @@ export function prepareProtectionRecord(analysisId, baseTransaction = "") {
 }
 
 
+export function fetchProtectionRecord(analysisId) {
+  return apiFetch(`/api/protection/${analysisId}`);
+}
+
+
 export function createProtectionRecord(analysisId, signature, baseTransaction = "") {
   return apiFetch("/api/protection/record", {
     method: "POST",

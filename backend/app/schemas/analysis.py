@@ -2,6 +2,8 @@ from typing import Literal
 
 from pydantic import BaseModel, Field, field_validator
 
+from app.schemas.protection import ProtectionRecordResponse
+
 
 Verdict = Literal[
     "LIKELY_TRUE",
@@ -169,6 +171,7 @@ class HistorySummary(BaseModel):
     confidence: float = Field(ge=0.0, le=1.0)
     model_count: int = Field(ge=1)
     created_at: str
+    anchored: bool = False
 
 
 class DeletedHistorySummary(HistorySummary):
@@ -190,3 +193,4 @@ class HistoryDetail(BaseModel):
     analysis: ClaimAnalysisResponse
     created_at: str
     follow_ups: list[FollowUpEntry] = Field(default_factory=list)
+    protection_record: ProtectionRecordResponse | None = None

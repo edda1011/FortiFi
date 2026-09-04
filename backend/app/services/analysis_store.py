@@ -15,6 +15,7 @@ from app.schemas.analysis import (
     HistoryDetail,
     HistorySummary,
 )
+from app.schemas.protection import ProtectionRecordResponse
 
 
 class AnalysisStore:
@@ -48,6 +49,19 @@ class AnalysisStore:
                     question TEXT NOT NULL,
                     answer TEXT NOT NULL,
                     created_at TEXT NOT NULL,
+                    FOREIGN KEY (analysis_id)
+                        REFERENCES claim_analyses (analysis_id)
+                        ON DELETE CASCADE
+                )
+            """)
+            connection.execute("""
+                CREATE TABLE IF NOT EXISTS protection_records (
+                    analysis_id TEXT PRIMARY KEY,
+                    owner_address TEXT NOT NULL,
+                    report_hash TEXT NOT NULL UNIQUE,
+                    sui_digest TEXT NOT NULL,
+                    sui_object_id TEXT,
+                    anchored_at TEXT NOT NULL,
                     FOREIGN KEY (analysis_id)
                         REFERENCES claim_analyses (analysis_id)
                         ON DELETE CASCADE
@@ -148,6 +162,7 @@ class AnalysisStore:
                     confidence=analysis.consensus.confidence,
                     model_count=len(analysis.consensus.model_results),
                     created_at=created_at,
+                    anchored=self.get_protection_record(analysis.analysis_id, owner_address) is not None,
                 )
             for analysis, created_at in selected
         ]
@@ -232,7 +247,46 @@ class AnalysisStore:
                 )
                 for follow_up_id, question, answer, created_at in follow_up_rows
             ],
+            protection_record=self.get_protection_record(analysis_id, owner_address),
         )
+
+    def get_protection_record(
+        self, analysis_id: str, owner_address: str
+    ) -> ProtectionRecordResponse | None:
+        with self._connect() as connection:
+            row = connection.execute(
+                "SELECT report_hash, sui_digest, sui_object_id, anchored_at "
+                "FROM protection_records WHERE analysis_id = ? AND owner_address = ?",
+                (analysis_id, owner_address.lower()),
+            ).fetchone()
+        if row is None:
+            return None
+        report_hash, digest, object_id, anchored_at = row
+        return ProtectionRecordResponse(
+            report_hash=report_hash,
+            sui_digest=digest,
+            sui_object_id=object_id,
+            explorer_url=f"https://suiscan.xyz/testnet/tx/{digest}",
+            anchored_at=anchored_at,
+        )
+
+    def save_protection_record(
+        self,
+        analysis_id: str,
+        owner_address: str,
+        report_hash: str,
+        sui_digest: str,
+        sui_object_id: str | None,
+    ) -> ProtectionRecordResponse:
+        anchored_at = datetime.now(timezone.utc).isoformat()
+        with self._connect() as connection:
+            connection.execute(
+                "INSERT OR IGNORE INTO protection_records "
+                "(analysis_id, owner_address, report_hash, sui_digest, sui_object_id, anchored_at) "
+                "VALUES (?, ?, ?, ?, ?, ?)",
+                (analysis_id, owner_address.lower(), report_hash, sui_digest, sui_object_id, anchored_at),
+            )
+        return self.get_protection_record(analysis_id, owner_address)
 
     def save_follow_up(
         self,

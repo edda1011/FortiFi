@@ -1,12 +1,22 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
-import { createProtectionRecord, prepareProtectionRecord } from "../api/protection";
+import { createProtectionRecord, fetchProtectionRecord, prepareProtectionRecord } from "../api/protection";
 
 
-function ProtectionRecordPanel({ analysisId, account, baseTransaction = "" }) {
-  const [record, setRecord] = useState(null);
+function ProtectionRecordPanel({ analysisId, account, baseTransaction = "", initialRecord = null, onAnchored }) {
+  const [record, setRecord] = useState(initialRecord);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+
+  useEffect(() => {
+    setRecord(initialRecord);
+    if (!account || initialRecord) return undefined;
+    let cancelled = false;
+    fetchProtectionRecord(analysisId)
+      .then((saved) => { if (!cancelled) setRecord(saved); })
+      .catch((err) => { if (!cancelled) setError(err instanceof Error ? err.message : "Could not check Sui status."); });
+    return () => { cancelled = true; };
+  }, [account, analysisId, initialRecord]);
 
   if (!account) return null;
 
@@ -18,7 +28,9 @@ function ProtectionRecordPanel({ analysisId, account, baseTransaction = "" }) {
       const { ethers } = await import("ethers");
       const signer = await new ethers.BrowserProvider(window.ethereum).getSigner();
       const signature = await signer.signMessage(prepared.message);
-      setRecord(await createProtectionRecord(analysisId, signature, baseTransaction));
+      const saved = await createProtectionRecord(analysisId, signature, baseTransaction);
+      setRecord(saved);
+      onAnchored?.(saved);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Sui recording failed.");
     } finally {
@@ -36,7 +48,10 @@ function ProtectionRecordPanel({ analysisId, account, baseTransaction = "" }) {
       {record && (
         <div className="protection-success">
           <strong>Integrity anchored</strong>
+          <span>This report hash has already been anchored and cannot be anchored again.</span>
           <code>{record.report_hash}</code>
+          {record.anchored_at && <time>Anchored {new Date(record.anchored_at).toLocaleString("en-MY")}</time>}
+          {record.sui_object_id && <code>Record object: {record.sui_object_id}</code>}
           <a href={record.explorer_url} target="_blank" rel="noreferrer">View Sui transaction</a>
         </div>
       )}

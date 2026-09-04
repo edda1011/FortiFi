@@ -1,6 +1,7 @@
 module fortifi_protection::protection_policy;
 
 use sui::event;
+use sui::clock::Clock;
 use sui::table::{Self, Table};
 
 const E_NOT_ADMIN: u64 = 0;

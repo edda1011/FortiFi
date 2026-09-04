@@ -42,6 +42,9 @@ class ProtectionService:
         signature: str,
         base_transaction: str = "",
     ) -> tuple[str, str, str | None]:
+        existing = self.store.get_protection_record(analysis_id, owner)
+        if existing is not None:
+            return existing.report_hash, existing.sui_digest, existing.sui_object_id
         _, report_hash, message = self.prepare(analysis_id, owner, base_transaction)
         try:
             recovered = Account.recover_message(
@@ -54,4 +57,10 @@ class ProtectionService:
         digest, object_id = self.sui.record(
             report_hash, owner, signature, base_transaction
         )
+        self.store.save_protection_record(
+            analysis_id, owner, report_hash, digest, object_id
+        )
         return report_hash, digest, object_id
+
+    def status(self, analysis_id: str, owner: str):
+        return self.store.get_protection_record(analysis_id, owner)

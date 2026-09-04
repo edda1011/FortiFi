@@ -479,7 +479,7 @@ function App() {
           />
         )}
 
-        {view === "history" && <HistoryPanel key={account || "guest"} connected={Boolean(account)} onAnalyzeWithAll={analyzeWithAllModels} />}
+        {view === "history" && <HistoryPanel key={account || "guest"} connected={Boolean(account)} account={account} onAnalyzeWithAll={analyzeWithAllModels} />}
 
         {view === "claim" && (
         <>

@@ -9,3 +9,4 @@ data/*.db
 data/*.db-*
 !data/.gitkeep
 frontend/dist/
+contracts/sui/build/

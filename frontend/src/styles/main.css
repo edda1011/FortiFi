@@ -828,6 +828,12 @@ button:disabled {
   overflow-wrap: anywhere;
 }
 
+.protection-success span,
+.protection-success time {
+  color: #475569;
+  font-size: 13px;
+}
+
 
 .error {
   border-color: #fecaca;
@@ -1175,6 +1181,21 @@ button:disabled {
   align-items: center;
   display: flex;
   gap: 8px;
+}
+
+.history-row-badges {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+}
+
+.sui-anchor-badge {
+  background: #ecfdf5;
+  border-radius: 999px;
+  color: #047857;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 6px 10px;
 }
 
 .history-row-top {

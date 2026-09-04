@@ -15,6 +15,11 @@ router = APIRouter()
 service = ProtectionService()
 
 
+@router.get("/{analysis_id}", response_model=ProtectionRecordResponse | None)
+def status(analysis_id: str, owner: str = Depends(require_wallet)):
+    return service.status(analysis_id, owner)
+
+
 @router.post("/prepare", response_model=ProtectionPrepareResponse)
 def prepare(request: ProtectionPrepareRequest, owner: str = Depends(require_wallet)):
     try:
@@ -39,6 +44,7 @@ def record(request: ProtectionRecordRequest, owner: str = Depends(require_wallet
             sui_digest=digest,
             sui_object_id=object_id,
             explorer_url=f"https://suiscan.xyz/testnet/tx/{digest}",
+            anchored_at=service.status(request.analysis_id, owner).anchored_at,
         )
     except ProtectionError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
