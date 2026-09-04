@@ -26,6 +26,13 @@ class Settings(BaseSettings):
     # TODO: replace with a live price source post-hackathon.
     eth_usd_price: float = 4000.0
 
+    # --- Persistence ---------------------------------------------------
+    #
+    # SQLite only (spec constraint: no other infrastructure). The
+    # database file lives under ./data/ relative to the process CWD.
+
+    database_url: str = "sqlite:///./data/fortifi.db"
+
     # --- Risk engine thresholds ----------------------------------------
     #
     # Demo parameters, not financial advice. Kept in configuration so

@@ -289,6 +289,53 @@ button:disabled {
 }
 
 
+.history-section {
+  margin-top: 24px;
+}
+
+
+.history-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+
+.history-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+
+  padding: 12px 4px;
+
+  border-bottom: 1px solid #e2e8f0;
+}
+
+
+.history-item:last-child {
+  border-bottom: none;
+}
+
+
+.history-time {
+  color: #64748b;
+  font-size: 13px;
+}
+
+
+.history-value {
+  font-weight: 600;
+}
+
+
+.history-exposure {
+  color: #0f766e;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+
 .models {
   margin-top: 28px;
 }

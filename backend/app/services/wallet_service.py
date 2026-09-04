@@ -1,4 +1,6 @@
 import asyncio
+import logging
+from datetime import datetime
 from decimal import Decimal
 
 from eth_utils import (
@@ -9,9 +11,14 @@ from eth_utils import (
 )
 
 from app.config import settings
+from app.database.database import get_session
+from app.database.repositories.wallet_repository import WalletRepository
 from app.integrations.base.client import BaseClient, BaseRpcError
-from app.schemas.wallet import WalletCheckResponse
+from app.schemas.wallet import WalletCheckResponse, WalletExposureResponse
 from app.services.state import app_state
+
+
+logger = logging.getLogger(__name__)
 
 
 class InvalidAddressError(ValueError):
@@ -20,6 +27,10 @@ class InvalidAddressError(ValueError):
 
 class WalletUnavailableError(RuntimeError):
     """Raised when Base can't be reached to read balances."""
+
+
+class NoSnapshotError(LookupError):
+    """Raised when no saved snapshot exists for an address yet."""
 
 
 class WalletService:
@@ -74,7 +85,34 @@ class WalletService:
         # Record the latest snapshot so the dashboard can summarize it.
         app_state.set_wallet(response)
 
+        # Persist a snapshot for retrieval/history. A DB write failure
+        # must never break a successful balance read — the user asked
+        # to check a wallet, not to guarantee storage. Log and move on.
+        try:
+            self._persist_snapshot(response)
+
+        except Exception:
+            logger.exception(
+                "Failed to persist wallet snapshot for %s; "
+                "returning the read result anyway.",
+                checksum_address,
+            )
+
         return response
+
+    def _persist_snapshot(
+        self,
+        response: WalletCheckResponse,
+    ) -> None:
+        """
+        Save a computed snapshot via the repository. Pure data write,
+        no RPC calls here. Kept separate so `check()` stays readable
+        and the persistence path is easy to test in isolation.
+        """
+
+        with get_session() as db:
+            repository = WalletRepository(db)
+            repository.save_snapshot(response)
 
     async def _read_balances(
         self,
@@ -130,3 +168,38 @@ class WalletService:
             )
 
         return to_checksum_address(address)
+
+
+def get_current_exposure(
+    address: str,
+) -> WalletExposureResponse:
+    """
+    Return exposure from the latest saved snapshot for this address.
+
+    Does NOT trigger a new RPC read — if you want fresh data, call
+    /api/wallet/check first. Raises NoSnapshotError if no snapshot
+    exists yet.
+
+    This is the input the (not-yet-built) Risk Engine consumes
+    (spec section 23: exposure = ETH value).
+    """
+
+    checksum_address = WalletService._validate_address(address)
+
+    with get_session() as db:
+        repository = WalletRepository(db)
+        snapshot = repository.get_latest(checksum_address)
+
+    if snapshot is None:
+        raise NoSnapshotError(
+            f"No saved snapshot exists for {checksum_address} yet. "
+            "Check the wallet first to create one."
+        )
+
+    return WalletExposureResponse(
+        address=snapshot.wallet_address,
+        eth_value=snapshot.eth_value,
+        total_value=snapshot.total_value,
+        eth_exposure_percent=snapshot.eth_exposure_percent,
+        as_of=snapshot.created_at,
+    )

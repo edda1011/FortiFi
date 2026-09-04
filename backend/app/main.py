@@ -1,3 +1,5 @@
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -6,11 +8,20 @@ from app.api.routes.dashboard import router as dashboard_router
 from app.api.routes.risk import router as risk_router
 from app.api.thetanuts import router as thetanuts_router
 from app.api.wallet import router as wallet_router
+from app.database.database import init_db
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Create any tables that don't exist yet (SQLite, no Alembic).
+    init_db()
+    yield
 
 
 app = FastAPI(
     title="FortiFi API",
     version="0.1.0",
+    lifespan=lifespan,
 )
 
 

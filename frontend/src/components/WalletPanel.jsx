@@ -1,6 +1,6 @@
 import { useState } from "react";
 
-import { checkWallet } from "../api/wallet";
+import { checkWallet, getWalletHistory } from "../api/wallet";
 
 
 function formatUsd(value) {
@@ -9,6 +9,17 @@ function formatUsd(value) {
     currency: "USD",
     maximumFractionDigits: 2,
   });
+}
+
+
+function formatTimestamp(value) {
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+
+  return date.toLocaleString();
 }
 
 
@@ -24,6 +35,7 @@ function truncateAddress(address) {
 function WalletPanel() {
   const [address, setAddress] = useState("");
   const [result, setResult] = useState(null);
+  const [history, setHistory] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -41,12 +53,26 @@ function WalletPanel() {
     setLoading(true);
     setError("");
     setResult(null);
+    setHistory([]);
 
     try {
       const snapshot =
         await checkWallet(trimmedAddress);
 
       setResult(snapshot);
+
+      // After a successful check, also load the saved history for
+      // this address (the snapshot we just saved is included).
+      try {
+        const historyData =
+          await getWalletHistory(snapshot.address);
+
+        setHistory(historyData.snapshots ?? []);
+      } catch {
+        // History is a nice-to-have; don't fail the whole view if
+        // it can't be loaded.
+        setHistory([]);
+      }
     } catch (err) {
       setError(
         err instanceof Error
@@ -210,6 +236,45 @@ function WalletPanel() {
               thing that would move this portfolio.
             </p>
           </div>
+
+        </section>
+      )}
+
+
+      {history.length > 0 && !loading && (
+        <section className="results history-section">
+
+          <div className="results-header">
+            <div>
+              <h2>Saved History</h2>
+
+              <p>
+                Past snapshots for this address,
+                most recent first.
+              </p>
+            </div>
+          </div>
+
+          <ul className="history-list">
+            {history.map((snapshot) => (
+              <li
+                key={snapshot.id}
+                className="history-item"
+              >
+                <span className="history-time">
+                  {formatTimestamp(snapshot.created_at)}
+                </span>
+
+                <span className="history-value">
+                  {formatUsd(snapshot.total_value)}
+                </span>
+
+                <span className="history-exposure">
+                  {snapshot.eth_exposure_percent.toFixed(1)}% ETH
+                </span>
+              </li>
+            ))}
+          </ul>
 
         </section>
       )}
