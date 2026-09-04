@@ -2,6 +2,8 @@ import asyncio
 import logging
 from uuid import uuid4
 
+from openai import APIConnectionError, APITimeoutError, InternalServerError, RateLimitError
+
 from app.schemas.analysis import ModelAnalysis
 from app.schemas.analysis_job import AnalysisJobResponse, ModelProgress
 from app.services.claim_service import ClaimService
@@ -16,6 +18,8 @@ class AnalysisJobNotFoundError(ValueError):
 
 class AnalysisJobService:
     FAST_TIMEOUT_SECONDS = 35
+    FAST_RETRY_TIMEOUT_SECONDS = 20
+    MAX_MODEL_ATTEMPTS = 2
 
     def __init__(self) -> None:
         self.claim_service = ClaimService()
@@ -106,46 +110,84 @@ class AnalysisJobService:
     ) -> ModelAnalysis | None:
         progress = next(item for item in job.models if item.model == display_name)
         progress.status = "analyzing"
-        try:
-            analysis = self.claim_service.gonka_service.analyze_with_model(
-                display_name=display_name,
-                model=model,
-                claim=claim,
-                evidence=evidence,
-            )
-            result = (
-                await analysis
-                if job.wait_for_all
-                else await asyncio.wait_for(
-                    analysis,
-                    timeout=self.FAST_TIMEOUT_SECONDS,
+        for attempt in range(1, self.MAX_MODEL_ATTEMPTS + 1):
+            try:
+                analysis = self.claim_service.gonka_service.analyze_with_model(
+                    display_name=display_name,
+                    model=model,
+                    claim=claim,
+                    evidence=evidence,
                 )
-            )
-            progress.status = "completed"
-            return result
-        except asyncio.TimeoutError:
-            progress.status = "timed_out"
-            progress.error = (
-                f"No response within {self.FAST_TIMEOUT_SECONDS} seconds."
-            )
-            logger.warning(
-                "%s timed out after %s seconds.",
-                display_name,
-                self.FAST_TIMEOUT_SECONDS,
-            )
-        except asyncio.CancelledError:
-            progress.status = "cancelled"
-            raise
-        except Exception as exc:
-            progress.status = "failed"
-            progress.error = "This model could not complete the analysis."
-            logger.warning(
-                "%s failed: %s: %s",
-                display_name,
-                type(exc).__name__,
-                exc,
-            )
+                result = (
+                    await analysis
+                    if job.wait_for_all
+                    else await asyncio.wait_for(
+                        analysis,
+                        timeout=(
+                            self.FAST_TIMEOUT_SECONDS
+                            if attempt == 1
+                            else self.FAST_RETRY_TIMEOUT_SECONDS
+                        ),
+                    )
+                )
+                progress.status = "completed"
+                return result
+            except asyncio.CancelledError:
+                progress.status = "cancelled"
+                raise
+            except Exception as exc:
+                if attempt < self.MAX_MODEL_ATTEMPTS and self._is_retryable(exc):
+                    logger.warning(
+                        "%s attempt %s failed; retrying once: %s: %s",
+                        display_name,
+                        attempt,
+                        type(exc).__name__,
+                        exc,
+                    )
+                    continue
+
+                if isinstance(exc, asyncio.TimeoutError):
+                    timeout_seconds = (
+                        self.FAST_TIMEOUT_SECONDS
+                        if attempt == 1
+                        else self.FAST_RETRY_TIMEOUT_SECONDS
+                    )
+                    progress.status = "timed_out"
+                    progress.error = (
+                        f"No response within the {self.FAST_TIMEOUT_SECONDS + self.FAST_RETRY_TIMEOUT_SECONDS}-second total limit."
+                    )
+                    logger.warning(
+                        "%s timed out after %s seconds.",
+                        display_name,
+                        timeout_seconds,
+                    )
+                else:
+                    progress.status = "failed"
+                    progress.error = "This model could not complete the analysis."
+                    logger.warning(
+                        "%s failed: %s: %s",
+                        display_name,
+                        type(exc).__name__,
+                        exc,
+                    )
+                break
         return None
+
+    @staticmethod
+    def _is_retryable(exc: Exception) -> bool:
+        return isinstance(
+            exc,
+            (
+                asyncio.TimeoutError,
+                APIConnectionError,
+                APITimeoutError,
+                InternalServerError,
+                RateLimitError,
+            ),
+        ) or (
+            isinstance(exc, ValueError)
+            and "Gonka returned an empty response" in str(exc)
+        )
 
     @staticmethod
     def _mark_cancelled_models(job: AnalysisJobResponse) -> None:
