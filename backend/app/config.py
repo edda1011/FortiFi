@@ -33,6 +33,14 @@ class Settings(BaseSettings):
 
     database_url: str = "sqlite:///./data/fortifi.db"
 
+    # Sui testnet sponsored protection records. The CLI uses its own backend-only
+    # keystore; no Sui secret is ever exposed to the browser.
+    sui_rpc_url: str = "https://fullnode.testnet.sui.io:443"
+    sui_cli_path: str = "sui"
+    sui_package_id: str = ""
+    sui_registry_id: str = ""
+    sui_gas_budget: int = 10_000_000
+
     # --- Risk engine thresholds ----------------------------------------
     #
     # Demo parameters, not financial advice. Kept in configuration so

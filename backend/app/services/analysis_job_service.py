@@ -24,9 +24,12 @@ class AnalysisJobService:
     def __init__(self) -> None:
         self.claim_service = ClaimService()
         self.jobs: dict[str, AnalysisJobResponse] = {}
+        self.owners: dict[str, str | None] = {}
         self._tasks: set[asyncio.Task] = set()
 
-    def create(self, claim: str, wait_for_all: bool) -> AnalysisJobResponse:
+    def create(
+        self, claim: str, wait_for_all: bool, owner_address: str | None = None
+    ) -> AnalysisJobResponse:
         job_id = str(uuid4())
         job = AnalysisJobResponse(
             job_id=job_id,
@@ -39,6 +42,7 @@ class AnalysisJobService:
             ],
         )
         self.jobs[job_id] = job
+        self.owners[job_id] = owner_address
         task = asyncio.create_task(self._run(job_id, claim))
         self._tasks.add(task)
         task.add_done_callback(self._tasks.discard)
@@ -92,6 +96,7 @@ class AnalysisJobService:
                 claim=claim,
                 evidence=evidence,
                 analyses=completed_analyses,
+                owner_address=self.owners.get(job_id),
             )
             job.status = "completed"
             job.phase = "Analysis complete"

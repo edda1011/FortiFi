@@ -1,6 +1,8 @@
+from __future__ import annotations
+
 from pathlib import Path
 
-from app.schemas.analysis import FollowUpEntry, HistoryDetail, HistorySummary
+from app.schemas.analysis import DeletedHistorySummary, FollowUpEntry, HistoryDetail, HistorySummary
 from app.services.analysis_store import AnalysisStore
 from app.services.gonka_service import GonkaService
 
@@ -14,21 +16,42 @@ class HistoryService:
         self.store = AnalysisStore(database_path)
         self.gonka_service = GonkaService()
 
-    def list(self, limit: int = 50) -> list[HistorySummary]:
-        return self.store.list_history(limit=max(1, min(limit, 50)))
+    def list(self, owner_address: str, limit: int = 50) -> list[HistorySummary]:
+        return self.store.list_history(owner_address, limit=max(1, min(limit, 50)))
 
-    def get(self, analysis_id: str) -> HistoryDetail:
-        detail = self.store.get(analysis_id)
+    def get(self, analysis_id: str, owner_address: str) -> HistoryDetail:
+        detail = self.store.get(analysis_id, owner_address)
         if detail is None:
             raise HistoryNotFoundError("Analysis history entry was not found.")
         return detail
 
+    def find_recent_claim(
+        self, owner_address: str, claim: str, hours: int = 24
+    ) -> HistoryDetail | None:
+        return self.store.find_recent_claim(owner_address, claim.strip(), hours)
+
+    def list_trash(self, owner_address: str, limit: int = 50) -> list[DeletedHistorySummary]:
+        return self.store.list_trash(owner_address, limit=max(1, min(limit, 50)))
+
+    def delete(self, analysis_id: str, owner_address: str) -> None:
+        if not self.store.soft_delete(analysis_id, owner_address):
+            raise HistoryNotFoundError("Analysis history entry was not found.")
+
+    def restore(self, analysis_id: str, owner_address: str) -> None:
+        if not self.store.restore(analysis_id, owner_address):
+            raise HistoryNotFoundError("Deleted analysis was not found.")
+
+    def permanently_delete(self, analysis_id: str, owner_address: str) -> None:
+        if not self.store.permanently_delete(analysis_id, owner_address):
+            raise HistoryNotFoundError("Deleted analysis was not found.")
+
     async def answer_follow_up(
         self,
         analysis_id: str,
+        owner_address: str,
         question: str,
     ) -> FollowUpEntry:
-        detail = self.get(analysis_id)
+        detail = self.get(analysis_id, owner_address)
         answer = await self.gonka_service.answer_follow_up(
             analysis=detail.analysis,
             previous_follow_ups=detail.follow_ups,
@@ -36,6 +59,7 @@ class HistoryService:
         )
         return self.store.save_follow_up(
             analysis_id=analysis_id,
+            owner_address=owner_address,
             question=question,
             answer=answer,
         )

@@ -29,6 +29,7 @@ class ClaimService:
     async def analyze(
         self,
         claim: str,
+        owner_address: str | None = None,
     ) -> ClaimAnalysisResponse:
 
         evidence = await self.search_service.search_evidence(claim)
@@ -37,13 +38,14 @@ class ClaimService:
         analyses = await self.gonka_service.analyze_claim(
             claim, evidence_data
         )
-        return self.build_result(claim, evidence, analyses)
+        return self.build_result(claim, evidence, analyses, owner_address)
 
     def build_result(
         self,
         claim: str,
         evidence: list[EvidenceItem],
         analyses: list[ModelAnalysis],
+        owner_address: str | None = None,
     ) -> ClaimAnalysisResponse:
         consensus = self.consensus_service.calculate(analyses)
         supporting_models = sum(
@@ -80,7 +82,10 @@ class ClaimService:
             f"{consensus.market_impact.lower()} potential market impact. {next_step}"
         )
         portfolio_context = self._portfolio_context()
-        portfolio_exposure = self.exposure_service.calculate(claim)
+        detected_assets, asset_detection_sources = self.exposure_service.detect_assets(
+            claim, evidence, analyses
+        )
+        portfolio_exposure = self.exposure_service.calculate(claim, detected_assets)
         missing_context = list(
             dict.fromkeys(
                 item
@@ -106,9 +111,11 @@ class ClaimService:
             ),
             portfolio_context=portfolio_context,
             portfolio_exposure=portfolio_exposure,
+            detected_assets=detected_assets,
+            asset_detection_sources=asset_detection_sources,
             recommendations=recommendations,
         )
-        self.store.save(result)
+        self.store.save(result, owner_address)
         return result
 
     @staticmethod

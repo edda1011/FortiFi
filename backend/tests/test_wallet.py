@@ -7,7 +7,7 @@ the suite stays fast and doesn't depend on an external endpoint.
 
 import asyncio
 from decimal import Decimal
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, Mock
 
 import pytest
 
@@ -83,6 +83,22 @@ def test_check_handles_zero_balance_wallet():
 
     assert result.total_value == 0.0
     assert result.eth_exposure_percent == 0.0
+
+
+def test_live_connected_check_does_not_save_snapshot():
+    service = WalletService()
+    service.client.get_eth_balance = AsyncMock(return_value=Decimal("1"))
+    service.client.get_erc20_balance = AsyncMock(return_value=Decimal("5"))
+    service._persist_snapshot = Mock()
+
+    asyncio.run(
+        service.check(
+            "0x5aAeb6053F3E94C9b9A09f33669435E7Ef1BeAed",
+            record_snapshot=False,
+        )
+    )
+
+    service._persist_snapshot.assert_not_called()
 
 
 def test_check_raises_invalid_address_before_calling_rpc():

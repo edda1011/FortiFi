@@ -4,13 +4,14 @@ from __future__ import annotations
 
 import json
 import sqlite3
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from uuid import uuid4
 
 from app.schemas.analysis import (
     ClaimAnalysisResponse,
     FollowUpEntry,
+    DeletedHistorySummary,
     HistoryDetail,
     HistorySummary,
 )
@@ -27,11 +28,19 @@ class AnalysisStore:
             connection.execute("""
                 CREATE TABLE IF NOT EXISTS claim_analyses (
                     analysis_id TEXT PRIMARY KEY,
+                    owner_address TEXT,
                     claim TEXT NOT NULL,
                     payload TEXT NOT NULL,
                     created_at TEXT NOT NULL
                 )
             """)
+            columns = {
+                row[1] for row in connection.execute("PRAGMA table_info(claim_analyses)")
+            }
+            if "owner_address" not in columns:
+                connection.execute("ALTER TABLE claim_analyses ADD COLUMN owner_address TEXT")
+            if "deleted_at" not in columns:
+                connection.execute("ALTER TABLE claim_analyses ADD COLUMN deleted_at TEXT")
             connection.execute("""
                 CREATE TABLE IF NOT EXISTS analysis_follow_ups (
                     follow_up_id TEXT PRIMARY KEY,
@@ -44,50 +53,162 @@ class AnalysisStore:
                         ON DELETE CASCADE
                 )
             """)
+            self._purge_expired(connection)
 
-    def save(self, result: ClaimAnalysisResponse) -> None:
+    @staticmethod
+    def _purge_expired(connection: sqlite3.Connection) -> None:
+        cutoff = (datetime.now(timezone.utc) - timedelta(days=30)).isoformat()
+        connection.execute(
+            "DELETE FROM claim_analyses WHERE deleted_at IS NOT NULL AND deleted_at < ?",
+            (cutoff,),
+        )
+
+    def save(self, result: ClaimAnalysisResponse, owner_address: str | None = None) -> None:
+        if owner_address is None:
+            return
         with self._connect() as connection:
             connection.execute(
-                "INSERT OR REPLACE INTO claim_analyses VALUES (?, ?, ?, ?)",
-                (result.analysis_id, result.claim, result.model_dump_json(), datetime.now(timezone.utc).isoformat()),
+                "INSERT OR REPLACE INTO claim_analyses "
+                "(analysis_id, owner_address, claim, payload, created_at) VALUES (?, ?, ?, ?, ?)",
+                (
+                    result.analysis_id,
+                    owner_address.lower(),
+                    result.claim,
+                    result.model_dump_json(),
+                    datetime.now(timezone.utc).isoformat(),
+                ),
             )
 
-    def recent(self, limit: int = 5) -> list[ClaimAnalysisResponse]:
+    def recent(self, owner_address: str, limit: int = 5) -> list[ClaimAnalysisResponse]:
         with self._connect() as connection:
             rows = connection.execute(
-                "SELECT payload FROM claim_analyses ORDER BY created_at DESC LIMIT ?", (limit,)
+                "SELECT payload FROM claim_analyses WHERE owner_address = ? "
+                "AND deleted_at IS NULL "
+                "ORDER BY created_at DESC LIMIT ?",
+                (owner_address.lower(), limit),
             ).fetchall()
         return [ClaimAnalysisResponse.model_validate_json(row[0]) for row in rows]
 
-    def list_history(self, limit: int = 50) -> list[HistorySummary]:
+    def find_recent_claim(
+        self,
+        owner_address: str,
+        claim: str,
+        hours: int = 24,
+    ) -> HistoryDetail | None:
+        cutoff = (datetime.now(timezone.utc) - timedelta(hours=hours)).isoformat()
+        with self._connect() as connection:
+            rows = connection.execute(
+                "SELECT analysis_id, payload, created_at FROM claim_analyses "
+                "WHERE owner_address = ? AND claim = ? AND deleted_at IS NULL "
+                "AND created_at >= ?",
+                (owner_address.lower(), claim, cutoff),
+            ).fetchall()
+        if not rows:
+            return None
+        best = max(
+            rows,
+            key=lambda row: (
+                len(ClaimAnalysisResponse.model_validate_json(row[1]).consensus.model_results),
+                row[2],
+            ),
+        )
+        return self.get(best[0], owner_address)
+
+    def list_history(self, owner_address: str, limit: int = 50) -> list[HistorySummary]:
         with self._connect() as connection:
             rows = connection.execute(
                 "SELECT payload, created_at FROM claim_analyses "
-                "ORDER BY created_at DESC LIMIT ?",
-                (limit,),
+                "WHERE owner_address = ? AND deleted_at IS NULL "
+                "ORDER BY created_at DESC",
+                (owner_address.lower(),),
             ).fetchall()
 
-        summaries = []
+        best_by_claim: dict[str, tuple[ClaimAnalysisResponse, str]] = {}
         for payload, created_at in rows:
             analysis = ClaimAnalysisResponse.model_validate_json(payload)
-            summaries.append(
+            current = best_by_claim.get(analysis.claim)
+            if current is None or (
+                len(analysis.consensus.model_results),
+                created_at,
+            ) > (
+                len(current[0].consensus.model_results),
+                current[1],
+            ):
+                best_by_claim[analysis.claim] = (analysis, created_at)
+
+        selected = sorted(
+            best_by_claim.values(), key=lambda item: item[1], reverse=True
+        )[:limit]
+        return [
                 HistorySummary(
                     analysis_id=analysis.analysis_id,
                     claim=analysis.claim,
                     verdict=analysis.final_assessment.verdict,
                     credibility_score=analysis.consensus.credibility_score,
                     confidence=analysis.consensus.confidence,
+                    model_count=len(analysis.consensus.model_results),
                     created_at=created_at,
                 )
-            )
-        return summaries
+            for analysis, created_at in selected
+        ]
 
-    def get(self, analysis_id: str) -> HistoryDetail | None:
+    def list_trash(self, owner_address: str, limit: int = 50) -> list[DeletedHistorySummary]:
+        with self._connect() as connection:
+            self._purge_expired(connection)
+            rows = connection.execute(
+                "SELECT payload, created_at, deleted_at FROM claim_analyses "
+                "WHERE owner_address = ? AND deleted_at IS NOT NULL "
+                "ORDER BY deleted_at DESC LIMIT ?",
+                (owner_address.lower(), limit),
+            ).fetchall()
+        return [
+            DeletedHistorySummary(
+                analysis_id=(analysis := ClaimAnalysisResponse.model_validate_json(payload)).analysis_id,
+                claim=analysis.claim,
+                verdict=analysis.final_assessment.verdict,
+                credibility_score=analysis.consensus.credibility_score,
+                confidence=analysis.consensus.confidence,
+                model_count=len(analysis.consensus.model_results),
+                created_at=created_at,
+                deleted_at=deleted_at,
+            )
+            for payload, created_at, deleted_at in rows
+        ]
+
+    def soft_delete(self, analysis_id: str, owner_address: str) -> bool:
+        with self._connect() as connection:
+            result = connection.execute(
+                "UPDATE claim_analyses SET deleted_at = ? "
+                "WHERE analysis_id = ? AND owner_address = ? AND deleted_at IS NULL",
+                (datetime.now(timezone.utc).isoformat(), analysis_id, owner_address.lower()),
+            )
+        return result.rowcount > 0
+
+    def restore(self, analysis_id: str, owner_address: str) -> bool:
+        with self._connect() as connection:
+            self._purge_expired(connection)
+            result = connection.execute(
+                "UPDATE claim_analyses SET deleted_at = NULL "
+                "WHERE analysis_id = ? AND owner_address = ? AND deleted_at IS NOT NULL",
+                (analysis_id, owner_address.lower()),
+            )
+        return result.rowcount > 0
+
+    def permanently_delete(self, analysis_id: str, owner_address: str) -> bool:
+        with self._connect() as connection:
+            result = connection.execute(
+                "DELETE FROM claim_analyses "
+                "WHERE analysis_id = ? AND owner_address = ? AND deleted_at IS NOT NULL",
+                (analysis_id, owner_address.lower()),
+            )
+        return result.rowcount > 0
+
+    def get(self, analysis_id: str, owner_address: str) -> HistoryDetail | None:
         with self._connect() as connection:
             row = connection.execute(
                 "SELECT payload, created_at FROM claim_analyses "
-                "WHERE analysis_id = ?",
-                (analysis_id,),
+                "WHERE analysis_id = ? AND owner_address = ? AND deleted_at IS NULL",
+                (analysis_id, owner_address.lower()),
             ).fetchone()
             if row is None:
                 return None
@@ -116,9 +237,12 @@ class AnalysisStore:
     def save_follow_up(
         self,
         analysis_id: str,
+        owner_address: str,
         question: str,
         answer: str,
     ) -> FollowUpEntry:
+        if self.get(analysis_id, owner_address) is None:
+            raise ValueError("Analysis history entry was not found.")
         entry = FollowUpEntry(
             follow_up_id=str(uuid4()),
             question=question,

@@ -1,6 +1,6 @@
 import { useState } from "react";
 
-import { loadLiveHedgePreview } from "../services/thetanuts";
+import { loadLiveHedgePreview, purchaseLiveHedge } from "../services/thetanuts";
 
 
 function formatUsd(value) {
@@ -12,14 +12,15 @@ function formatUsd(value) {
 }
 
 
-function ThetanutsHedgePanel({ claim = "", exposure }) {
+function ThetanutsHedgePanel({ detectedAssets = [], detectionSources = [], account, onPurchased }) {
   const [preview, setPreview] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [buying, setBuying] = useState(false);
+  const [assisted, setAssisted] = useState(false);
+  const [purchase, setPurchase] = useState(null);
 
-  const affectedAssets = exposure?.affected_assets || [];
-  const isEthClaim = /(?:\beth\b|ethereum)/i.test(claim)
-    || affectedAssets.some((asset) => /^(?:ETH|ETHEREUM)$/i.test(asset));
+  const isEthClaim = detectedAssets.some((asset) => asset === "ETH");
 
   if (!isEthClaim) return null;
 
@@ -33,6 +34,20 @@ function ThetanutsHedgePanel({ claim = "", exposure }) {
       setError(err instanceof Error ? err.message : "Could not load a live hedge.");
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function buyHedge() {
+    setBuying(true);
+    setError("");
+    try {
+      const receipt = await purchaseLiveHedge(account);
+      setPurchase(receipt);
+      onPurchased?.(receipt.transactionHash);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Hedge purchase failed.");
+    } finally {
+      setBuying(false);
     }
   }
 
@@ -50,6 +65,10 @@ function ThetanutsHedgePanel({ claim = "", exposure }) {
         FortiFi can search the live Thetanuts OptionBook for an ETH put near 90%
         of spot price and preview a small, defined-budget hedge.
       </p>
+
+      {detectionSources.includes("article_content") && (
+        <p className="hedge-detection-note">ETH exposure detected from the article content.</p>
+      )}
 
       {!preview && (
         <button type="button" onClick={findHedge} disabled={loading}>
@@ -92,6 +111,25 @@ function ThetanutsHedgePanel({ claim = "", exposure }) {
           <button type="button" className="secondary-button" onClick={findHedge} disabled={loading}>
             {loading ? "Refreshing…" : "Refresh Live Preview"}
           </button>
+
+          {!purchase && (
+            <div className="hedge-purchase">
+              <label>
+                <input type="checkbox" checked={assisted} onChange={(event) => setAssisted(event.target.checked)} />
+                Enable assisted $5 hedge purchase
+              </label>
+              <p>FortiFi selected the contract. Your wallet will still ask you to confirm approval and purchase transactions.</p>
+              <button type="button" onClick={buyHedge} disabled={!assisted || !account || buying}>
+                {!account ? "Connect Wallet to Buy" : buying ? "Confirm in Wallet…" : "Approve & Buy ETH Put"}
+              </button>
+            </div>
+          )}
+          {purchase && (
+            <p className="protection-success">
+              <strong>Hedge confirmed</strong>
+              <a href={`https://basescan.org/tx/${purchase.transactionHash}`} target="_blank" rel="noreferrer">View Base transaction</a>
+            </p>
+          )}
         </div>
       )}
     </section>

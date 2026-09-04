@@ -1,5 +1,6 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 
+from app.api.auth import optional_wallet
 from app.schemas.dashboard import DashboardSummary
 from app.schemas.analysis import NewsItem
 from app.services.analysis_store import AnalysisStore
@@ -16,7 +17,7 @@ router = APIRouter(
     "/summary",
     response_model=DashboardSummary,
 )
-async def dashboard_summary():
+async def dashboard_summary(owner_address: str | None = Depends(optional_wallet)):
     """
     Summarize the current FortiFi state.
 
@@ -25,10 +26,12 @@ async def dashboard_summary():
     does not maintain its own database state.
     """
 
-    wallet = app_state.wallet
+    # Connected-wallet balances are refreshed live by the frontend. Do not
+    # expose the process-global result of another user's manual address check.
+    wallet = None
     risk = app_state.risk
 
-    recent = AnalysisStore().recent(limit=1)
+    recent = AnalysisStore().recent(owner_address, limit=1) if owner_address else []
     return DashboardSummary(
         has_wallet=wallet is not None,
         wallet=wallet,

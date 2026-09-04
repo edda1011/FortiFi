@@ -1,5 +1,6 @@
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 
+from app.api.auth import require_wallet
 from app.database.database import get_session
 from app.database.repositories.wallet_repository import WalletRepository
 from app.schemas.wallet import (
@@ -40,6 +41,20 @@ def _snapshot_to_response(row) -> WalletSnapshotResponse:
         eth_exposure_percent=row.eth_exposure_percent,
         created_at=row.created_at,
     )
+
+
+@router.get(
+    "/connected",
+    response_model=WalletCheckResponse,
+)
+async def get_connected_wallet(
+    owner_address: str = Depends(require_wallet),
+):
+    """Read the signed-in wallet's live balances without saving a snapshot."""
+    try:
+        return await wallet_service.check(owner_address, record_snapshot=False)
+    except WalletUnavailableError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
 
 
 @router.post(

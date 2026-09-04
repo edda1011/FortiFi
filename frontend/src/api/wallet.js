@@ -1,3 +1,5 @@
+import { apiFetch } from "./client";
+
 const API_BASE_URL = "http://127.0.0.1:8000";
 
 
@@ -41,6 +43,11 @@ export async function checkWallet(address) {
   }
 
   return response.json();
+}
+
+
+export function checkConnectedWallet() {
+  return apiFetch("/api/wallet/connected");
 }
 
 

@@ -4,6 +4,8 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.claims import router as claims_router
+from app.api.auth import router as auth_router
+from app.api.protection import router as protection_router
 from app.api.routes.dashboard import router as dashboard_router
 from app.api.routes.risk import router as risk_router
 from app.api.thetanuts import router as thetanuts_router
@@ -36,6 +38,20 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+)
+
+
+app.include_router(
+    auth_router,
+    prefix="/api/auth",
+    tags=["Auth"],
+)
+
+
+app.include_router(
+    protection_router,
+    prefix="/api/protection",
+    tags=["Protection"],
 )
 
 

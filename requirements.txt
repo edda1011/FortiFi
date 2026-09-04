@@ -7,5 +7,6 @@ pydantic-settings
 httpx
 eth-utils
 eth-hash[pycryptodome]
+eth-account
 sqlalchemy
 pytest

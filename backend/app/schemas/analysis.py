@@ -127,6 +127,8 @@ class ClaimAnalysisResponse(BaseModel):
     final_assessment: FinalAssessment
     portfolio_context: PortfolioContext = Field(default_factory=PortfolioContext)
     portfolio_exposure: PortfolioExposure | None = None
+    detected_assets: list[str] = Field(default_factory=list)
+    asset_detection_sources: list[str] = Field(default_factory=list)
     recommendations: list[Recommendation] = Field(default_factory=list)
 
     @field_validator("recommendations", mode="before")
@@ -165,7 +167,12 @@ class HistorySummary(BaseModel):
     verdict: Verdict
     credibility_score: float = Field(ge=0.0, le=1.0)
     confidence: float = Field(ge=0.0, le=1.0)
+    model_count: int = Field(ge=1)
     created_at: str
+
+
+class DeletedHistorySummary(HistorySummary):
+    deleted_at: str
 
 
 class FollowUpRequest(BaseModel):

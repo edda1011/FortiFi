@@ -1,10 +1,13 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { analyzeClaim } from "./api/claims";
-import { checkWallet, getWalletHistory } from "./api/wallet";
+import { findRecentClaim } from "./api/history";
+import { connectBaseWallet, disconnectBaseWallet, savedWalletAddress } from "./api/auth";
+import { checkConnectedWallet, checkWallet, getWalletHistory } from "./api/wallet";
 import Dashboard from "./components/Dashboard.jsx";
 import HistoryPanel from "./components/HistoryPanel.jsx";
 import ReasoningTrace from "./components/ReasoningTrace.jsx";
+import ProtectionRecordPanel from "./components/ProtectionRecordPanel.jsx";
 import ThetanutsHedgePanel from "./components/ThetanutsHedgePanel.jsx";
 import WalletPanel from "./components/WalletPanel.jsx";
 
@@ -130,6 +133,134 @@ function App() {
   const [walletHistory, setWalletHistory] = useState([]);
   const [walletLoading, setWalletLoading] = useState(false);
   const [walletError, setWalletError] = useState("");
+  const [account, setAccount] = useState(savedWalletAddress);
+  const [connectedWallet, setConnectedWallet] = useState(null);
+  const [connecting, setConnecting] = useState(false);
+  const [walletMenuOpen, setWalletMenuOpen] = useState(false);
+  const walletMenuRef = useRef(null);
+  const analysisRequestRef = useRef(0);
+  const [hedgeTransaction, setHedgeTransaction] = useState("");
+  const [duplicateAnalysis, setDuplicateAnalysis] = useState(null);
+  const [viewingPreviousFastReport, setViewingPreviousFastReport] = useState(false);
+
+  function resetCredentialState() {
+    analysisRequestRef.current += 1;
+    setClaim("");
+    setResult(null);
+    setLoading(false);
+    setError("");
+    setProgress(null);
+    setWalletAddress("");
+    setWalletResult(null);
+    setWalletHistory([]);
+    setWalletLoading(false);
+    setWalletError("");
+    setConnectedWallet(null);
+    setHedgeTransaction("");
+    setDuplicateAnalysis(null);
+    setViewingPreviousFastReport(false);
+  }
+
+  useEffect(() => {
+    function closeExpiredSession() {
+      resetCredentialState();
+      setAccount("");
+      setWalletMenuOpen(false);
+    }
+    function closeMenu(event) {
+      if (!walletMenuRef.current?.contains(event.target)) setWalletMenuOpen(false);
+    }
+    function closeMenuWithEscape(event) {
+      if (event.key === "Escape") setWalletMenuOpen(false);
+    }
+    window.addEventListener("fortifi:session-expired", closeExpiredSession);
+    document.addEventListener("mousedown", closeMenu);
+    document.addEventListener("keydown", closeMenuWithEscape);
+    return () => {
+      window.removeEventListener("fortifi:session-expired", closeExpiredSession);
+      document.removeEventListener("mousedown", closeMenu);
+      document.removeEventListener("keydown", closeMenuWithEscape);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!window.ethereum) return undefined;
+    function disconnectChangedAccount(accounts) {
+      if (account && !accounts.some((address) => address.toLowerCase() === account.toLowerCase())) {
+        disconnectBaseWallet();
+        resetCredentialState();
+        setAccount("");
+        setWalletMenuOpen(false);
+      }
+    }
+    window.ethereum.on?.("accountsChanged", disconnectChangedAccount);
+    return () => window.ethereum.removeListener?.("accountsChanged", disconnectChangedAccount);
+  }, [account]);
+
+  useEffect(() => {
+    if (!account) {
+      setConnectedWallet(null);
+      return undefined;
+    }
+
+    let cancelled = false;
+    async function refreshConnectedWallet() {
+      try {
+        const wallet = await checkConnectedWallet();
+        if (!cancelled) setConnectedWallet(wallet);
+      } catch {
+        // Keep the last successful balance during temporary RPC failures.
+      }
+    }
+    function refreshWhenVisible() {
+      if (document.visibilityState === "visible") refreshConnectedWallet();
+    }
+
+    refreshConnectedWallet();
+    const intervalId = window.setInterval(refreshConnectedWallet, 15000);
+    document.addEventListener("visibilitychange", refreshWhenVisible);
+    return () => {
+      cancelled = true;
+      window.clearInterval(intervalId);
+      document.removeEventListener("visibilitychange", refreshWhenVisible);
+    };
+  }, [account]);
+
+  async function handleConnect() {
+    if (account) {
+      setWalletMenuOpen((open) => !open);
+      return;
+    }
+    setConnecting(true);
+    try {
+      const connectedAccount = await connectBaseWallet();
+      resetCredentialState();
+      setAccount(connectedAccount);
+      setWalletMenuOpen(false);
+    } catch (err) {
+      window.alert(err instanceof Error ? err.message : "Wallet connection failed.");
+    } finally {
+      setConnecting(false);
+    }
+  }
+
+  function handleDisconnect() {
+    disconnectBaseWallet();
+    resetCredentialState();
+    setAccount("");
+    setWalletMenuOpen(false);
+  }
+
+  function handleClearClaim() {
+    analysisRequestRef.current += 1;
+    setClaim("");
+    setResult(null);
+    setError("");
+    setProgress(null);
+    setHedgeTransaction("");
+    setDuplicateAnalysis(null);
+    setViewingPreviousFastReport(false);
+  }
 
   async function handleWalletSubmit(event) {
     event.preventDefault();
@@ -186,11 +317,7 @@ function App() {
     .map((model) => model.model) ?? [];
 
 
-  async function handleSubmit(event) {
-    event?.preventDefault();
-
-    const trimmedClaim = claim.trim();
-
+  async function runClaimAnalysis(trimmedClaim, waitMode, forceFresh = false) {
     if (!trimmedClaim) {
       setError("Please enter a claim.");
       return;
@@ -200,21 +327,48 @@ function App() {
     setError("");
     setResult(null);
     setProgress(null);
+    setDuplicateAnalysis(null);
+    setViewingPreviousFastReport(false);
+    const requestId = ++analysisRequestRef.current;
 
     try {
-      const analysis =
-        await analyzeClaim(trimmedClaim, waitForAll, setProgress);
+      if (account && !forceFresh) {
+        const previous = await findRecentClaim(trimmedClaim);
+        if (requestId !== analysisRequestRef.current) return;
+        if (previous) {
+          setDuplicateAnalysis(previous);
+          return;
+        }
+      }
 
-      setResult(analysis);
+      const analysis =
+        await analyzeClaim(trimmedClaim, waitMode, (nextProgress) => {
+          if (requestId === analysisRequestRef.current) setProgress(nextProgress);
+        });
+
+      if (requestId === analysisRequestRef.current) setResult(analysis);
     } catch (err) {
-      setError(
+      if (requestId === analysisRequestRef.current) setError(
         err instanceof Error
           ? err.message
           : "Something went wrong."
       );
     } finally {
-      setLoading(false);
+      if (requestId === analysisRequestRef.current) setLoading(false);
     }
+  }
+
+  function handleSubmit(event, forceFresh = false) {
+    event?.preventDefault();
+    return runClaimAnalysis(claim.trim(), waitForAll, forceFresh);
+  }
+
+  function analyzeWithAllModels(claimText) {
+    const trimmedClaim = claimText.trim();
+    setClaim(trimmedClaim);
+    setWaitForAll(true);
+    setView("claim");
+    runClaimAnalysis(trimmedClaim, true, true);
   }
 
   function handleHeadlineForClaimCheck(headline) {
@@ -284,6 +438,26 @@ function App() {
             Wallet
           </button>
 
+          <div className="wallet-menu" ref={walletMenuRef}>
+            <button
+              type="button"
+              className="wallet-connect"
+              onClick={handleConnect}
+              disabled={connecting}
+              aria-expanded={account ? walletMenuOpen : undefined}
+              aria-haspopup={account ? "menu" : undefined}
+            >
+              {connecting ? "Connecting…" : account ? `${account.slice(0, 6)}…${account.slice(-4)}` : "Connect Wallet"}
+            </button>
+            {account && walletMenuOpen && (
+              <div className="wallet-menu-popover" role="menu">
+                <span>Connected to Base</span>
+                <code>{`${account.slice(0, 8)}…${account.slice(-6)}`}</code>
+                <button type="button" role="menuitem" onClick={handleDisconnect}>Disconnect Wallet</button>
+              </div>
+            )}
+          </div>
+
           
         </nav>
       </header>
@@ -291,7 +465,7 @@ function App() {
 
       <main className="main">
 
-        {view === "dashboard" && <Dashboard onCheckHeadline={handleHeadlineForClaimCheck} />}
+        {view === "dashboard" && <Dashboard account={account} wallet={connectedWallet} onCheckHeadline={handleHeadlineForClaimCheck} />}
 
         {view === "wallet" && (
           <WalletPanel
@@ -305,7 +479,7 @@ function App() {
           />
         )}
 
-        {view === "history" && <HistoryPanel />}
+        {view === "history" && <HistoryPanel key={account || "guest"} connected={Boolean(account)} onAnalyzeWithAll={analyzeWithAllModels} />}
 
         {view === "claim" && (
         <>
@@ -332,7 +506,10 @@ function App() {
               id="claim"
               value={claim}
               onChange={(event) =>
-                setClaim(event.target.value)
+                {
+                  setClaim(event.target.value);
+                  setDuplicateAnalysis(null);
+                }
               }
               placeholder="Paste a financial claim, headline, statement, or public article URL..."
               disabled={loading}
@@ -360,20 +537,74 @@ function App() {
                 {claim.length} / 10,000
               </span>
 
-              <button
-                type="submit"
-                disabled={loading}
-              >
-                {loading
-                  ? "Analyzing..."
-                  : "Analyze Claim"}
-              </button>
+              <div className="claim-actions">
+                <button
+                  type="button"
+                  className="button-secondary"
+                  onClick={handleClearClaim}
+                  disabled={loading || (!claim && !result && !error)}
+                >
+                  Clear
+                </button>
+                <button
+                  type="submit"
+                  disabled={loading}
+                >
+                  {loading
+                    ? "Analyzing..."
+                    : "Analyze Claim"}
+                </button>
+              </div>
 
             </div>
 
           </form>
 
         </section>
+
+        {duplicateAnalysis && (
+          <section className="duplicate-claim" role="status">
+            <div>
+              <strong>This claim was analyzed recently</strong>
+              <p>Open the saved report instantly, or run a fresh Gonka analysis.</p>
+            </div>
+            <div className="duplicate-claim-actions">
+              <button
+                type="button"
+                className="button-secondary"
+                onClick={() => {
+                  setResult(duplicateAnalysis.analysis);
+                  setViewingPreviousFastReport(
+                    duplicateAnalysis.analysis.consensus.model_results.length < 3
+                  );
+                  setDuplicateAnalysis(null);
+                }}
+              >
+                View Previous Report
+              </button>
+              <button type="button" onClick={() => handleSubmit(undefined, true)}>
+                Analyze Again
+              </button>
+            </div>
+          </section>
+        )}
+
+        {viewingPreviousFastReport && result && (
+          <section className="fast-report-notice" role="status">
+            <div>
+              <strong>This report used Fast Consensus</strong>
+              <p>This saved result was based on {result.consensus.model_results.length} AI models.</p>
+            </div>
+            <div className="duplicate-claim-actions">
+              <button type="button" className="button-secondary" onClick={() => setViewingPreviousFastReport(false)}>
+                Use This Report
+              </button>
+              <button type="button" onClick={() => analyzeWithAllModels(result.claim)}>
+                Analyze with 3 Models
+              </button>
+            </div>
+          </section>
+        )}
 
 
         {error && (
@@ -396,7 +627,7 @@ function App() {
                 : error}
             </p>
             {retryableAnalysisFailure && (
-              <button type="button" onClick={() => handleSubmit()}>
+              <button type="button" onClick={() => handleSubmit(undefined, true)}>
                 Retry Analysis
               </button>
             )}
@@ -573,8 +804,16 @@ function App() {
               </section>
 
               <ThetanutsHedgePanel
-                claim={result.claim}
-                exposure={result.portfolio_exposure}
+                detectedAssets={result.detected_assets || []}
+                detectionSources={result.asset_detection_sources || []}
+                account={account}
+                onPurchased={setHedgeTransaction}
+              />
+
+              <ProtectionRecordPanel
+                analysisId={result.analysis_id}
+                account={account}
+                baseTransaction={hedgeTransaction}
               />
 
             </div>

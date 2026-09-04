@@ -1,21 +1,63 @@
 from __future__ import annotations
 
 import re
+from urllib.parse import unquote_plus
 
-from app.schemas.analysis import PortfolioExposure
+from app.schemas.analysis import EvidenceItem, ModelAnalysis, PortfolioExposure
 from app.services.state import app_state
 
 
 class ExposureService:
     """Deterministic scenario exposure; it is never calculated by an LLM."""
 
-    def calculate(self, claim: str) -> PortfolioExposure | None:
+    ETH_PATTERN = re.compile(
+        r"(?<![A-Za-z0-9])(?:ETH|Ethereum|Ether|WETH)(?![A-Za-z0-9])",
+        re.IGNORECASE,
+    )
+
+    def detect_assets(
+        self,
+        claim: str,
+        evidence: list[EvidenceItem],
+        analyses: list[ModelAnalysis],
+    ) -> tuple[list[str], list[str]]:
+        """Detect hedgeable assets locally without another inference request."""
+        sources: list[str] = []
+        if self._mentions_eth(unquote_plus(claim)):
+            sources.append("claim_input")
+
+        evidence_text = " ".join(
+            f"{item.title} {item.excerpt}" for item in evidence
+        )
+        if self._mentions_eth(evidence_text):
+            sources.append("article_content")
+
+        analysis_text = " ".join(
+            " ".join(
+                [
+                    item.reasoning_summary,
+                    *item.supporting_evidence,
+                    *item.contradicting_evidence,
+                    *item.missing_context,
+                ]
+            )
+            for item in analyses
+        )
+        if self._mentions_eth(analysis_text):
+            sources.append("ai_consensus")
+
+        return (["ETH"] if sources else []), sources
+
+    def calculate(
+        self, claim: str, detected_assets: list[str] | None = None
+    ) -> PortfolioExposure | None:
         wallet = app_state.wallet
         if wallet is None:
             return None
 
-        normalized = claim.upper()
-        if "ETH" not in normalized and "ETHEREUM" not in normalized:
+        if detected_assets is None:
+            detected_assets = ["ETH"] if self._mentions_eth(claim) else []
+        if "ETH" not in detected_assets:
             return None
 
         scenario = self._scenario_change(claim)
@@ -37,6 +79,10 @@ class ExposureService:
                 "assets remain unchanged."
             ),
         )
+
+    @classmethod
+    def _mentions_eth(cls, value: str) -> bool:
+        return bool(cls.ETH_PATTERN.search(value))
 
     @staticmethod
     def _scenario_change(claim: str) -> float | None:

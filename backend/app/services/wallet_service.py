@@ -51,6 +51,7 @@ class WalletService:
     async def check(
         self,
         address: str,
+        record_snapshot: bool = True,
     ) -> WalletCheckResponse:
 
         checksum_address = self._validate_address(address)
@@ -82,21 +83,17 @@ class WalletService:
             eth_exposure_percent=round(eth_exposure_percent, 2),
         )
 
-        # Record the latest snapshot so the dashboard can summarize it.
-        app_state.set_wallet(response)
-
-        # Persist a snapshot for retrieval/history. A DB write failure
-        # must never break a successful balance read — the user asked
-        # to check a wallet, not to guarantee storage. Log and move on.
-        try:
-            self._persist_snapshot(response)
-
-        except Exception:
-            logger.exception(
-                "Failed to persist wallet snapshot for %s; "
-                "returning the read result anyway.",
-                checksum_address,
-            )
+        if record_snapshot:
+            # Manual public-address checks are kept as saved snapshots.
+            app_state.set_wallet(response)
+            try:
+                self._persist_snapshot(response)
+            except Exception:
+                logger.exception(
+                    "Failed to persist wallet snapshot for %s; "
+                    "returning the read result anyway.",
+                    checksum_address,
+                )
 
         return response
 

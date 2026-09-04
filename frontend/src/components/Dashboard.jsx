@@ -263,7 +263,7 @@ function ProtectionCard() {
 }
 
 
-function Dashboard({ onCheckHeadline }) {
+function Dashboard({ account, wallet, onCheckHeadline }) {
   const [summary, setSummary] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -273,6 +273,8 @@ function Dashboard({ onCheckHeadline }) {
     let cancelled = false;
 
     async function load() {
+      setLoading(true);
+      setError("");
       try {
         const [data, headlines] = await Promise.all([fetchDashboard(), fetchDashboardNews().catch(() => [])]);
 
@@ -296,11 +298,13 @@ function Dashboard({ onCheckHeadline }) {
     }
 
     load();
+    window.addEventListener("fortifi:history-changed", load);
 
     return () => {
       cancelled = true;
+      window.removeEventListener("fortifi:history-changed", load);
     };
-  }, []);
+  }, [account]);
 
   return (
     <div className="dashboard">
@@ -330,7 +334,7 @@ function Dashboard({ onCheckHeadline }) {
 
       {!loading && !error && (
         <div className="dash-grid">
-          <PortfolioCard wallet={summary?.wallet} />
+          <PortfolioCard wallet={wallet} />
           <RiskCard risk={summary?.risk} />
           <AIConsensusCard analysis={summary?.latest_analysis} />
           <ProtectionCard />
