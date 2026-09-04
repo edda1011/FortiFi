@@ -1,8 +1,3 @@
-import { useState } from "react";
-
-import { checkWallet, getWalletHistory } from "../api/wallet";
-
-
 function formatUsd(value) {
   return value.toLocaleString("en-US", {
     style: "currency",
@@ -32,59 +27,15 @@ function truncateAddress(address) {
 }
 
 
-function WalletPanel() {
-  const [address, setAddress] = useState("");
-  const [result, setResult] = useState(null);
-  const [history, setHistory] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-
-
-  async function handleSubmit(event) {
-    event.preventDefault();
-
-    const trimmedAddress = address.trim();
-
-    if (!trimmedAddress) {
-      setError("Please enter a wallet address.");
-      return;
-    }
-
-    setLoading(true);
-    setError("");
-    setResult(null);
-    setHistory([]);
-
-    try {
-      const snapshot =
-        await checkWallet(trimmedAddress);
-
-      setResult(snapshot);
-
-      // After a successful check, also load the saved history for
-      // this address (the snapshot we just saved is included).
-      try {
-        const historyData =
-          await getWalletHistory(snapshot.address);
-
-        setHistory(historyData.snapshots ?? []);
-      } catch {
-        // History is a nice-to-have; don't fail the whole view if
-        // it can't be loaded.
-        setHistory([]);
-      }
-    } catch (err) {
-      setError(
-        err instanceof Error
-          ? err.message
-          : "Something went wrong."
-      );
-    } finally {
-      setLoading(false);
-    }
-  }
-
-
+function WalletPanel({
+  address,
+  setAddress,
+  result,
+  history,
+  loading,
+  error,
+  onSubmit,
+}) {
   return (
     <div className="wallet-panel">
 
@@ -102,7 +53,7 @@ function WalletPanel() {
         </div>
 
 
-        <form onSubmit={handleSubmit}>
+        <form onSubmit={onSubmit}>
 
           <label htmlFor="address">
             Wallet address
