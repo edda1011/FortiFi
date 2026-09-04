@@ -119,6 +119,16 @@ function HistoryDetail({ detail, loading, onBack, onFollowUp }) {
         <p>{analysis.final_assessment.analysis}</p>
       </section>
 
+      <section className="history-request-ids">
+        <h3>Gonka inference requests</h3>
+        {analysis.consensus.model_results.map((result) => (
+          <div key={result.model}>
+            <span>{result.model}</span>
+            <code>{result.request_id || "Not available"}</code>
+          </div>
+        ))}
+      </section>
+
       {analysis.evidence.length > 0 && (
         <section className="history-sources">
           <h3>Evidence retained with this analysis</h3>

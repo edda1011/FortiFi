@@ -15,6 +15,7 @@ from app.services.analysis_job_service import AnalysisJobService
 def _analysis(analysis_id: str = "analysis-1") -> ClaimAnalysisResponse:
     model = ModelAnalysis(
         model="Test model",
+        request_id="chatcmpl-test-123",
         credibility_score=0.6,
         confidence=0.7,
         verdict="UNCERTAIN",
@@ -55,7 +56,15 @@ def test_history_store_lists_and_reads_saved_analysis(tmp_path: Path):
     assert summaries[0].credibility_score == 0.6
     assert detail is not None
     assert detail.analysis.claim == result.claim
+    assert detail.analysis.consensus.model_results[0].request_id == "chatcmpl-test-123"
     assert detail.follow_ups == []
+
+
+def test_model_analysis_accepts_legacy_result_without_request_id():
+    legacy = _analysis().consensus.model_results[0].model_dump()
+    legacy.pop("request_id")
+
+    assert ModelAnalysis.model_validate(legacy).request_id is None
 
 
 def test_history_store_persists_follow_up(tmp_path: Path):

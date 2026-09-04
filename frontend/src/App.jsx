@@ -57,6 +57,11 @@ function ModelResult({ result }) {
       <p className="model-reasoning">
         {result.reasoning_summary}
       </p>
+
+      <p className="model-request-id">
+        <span>Gonka Request ID</span>
+        <code>{result.request_id || "Not available"}</code>
+      </p>
     </div>
   );
 }
@@ -321,7 +326,7 @@ function App() {
             </strong>
             <p>
               {fastConsensusFailed
-                ? "Fewer than 2 AI models responded within 35 seconds. Gonka may be busy—please try the analysis again."
+                ? "Fewer than 2 AI models completed within the 55-second total limit. Gonka may be busy—please try the analysis again."
                 : retryableAnalysisFailure && progress.wait_for_all && failedModelNames.length
                   ? `${failedModelNames.join(", ")} did not complete. Retry to request all three models again.`
                 : error}

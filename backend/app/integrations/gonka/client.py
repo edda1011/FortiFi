@@ -48,7 +48,9 @@ class GonkaClient:
                 f"Gonka returned an empty response for model: {model}"
             )
 
-        return self._parse_json(content)
+        result = self._parse_json(content)
+        result["request_id"] = getattr(response, "id", None)
+        return result
 
     @staticmethod
     def _parse_json(content: str) -> dict[str, Any]:
