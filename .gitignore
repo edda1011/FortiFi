@@ -10,3 +10,4 @@ data/*.db-*
 !data/.gitkeep
 frontend/dist/
 contracts/sui/build/
+.superpowers/

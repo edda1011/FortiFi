@@ -41,20 +41,24 @@ function ProtectionRecordPanel({ analysisId, account, recordType = "analysis", i
   return (
     <section className="protection-record">
       <span className="dashboard-eyebrow">Sui integrity layer</span>
-      <h3>{recordType === "analysis" ? "Analysis integrity record" : "Protection integrity record"}</h3>
-      <p>{recordType === "analysis" ? "Anchor this analysis report hash on Sui to prove the saved report has not changed. This does not purchase protection." : "Anchor the completed option purchase and its linked analysis hash on Sui. The Base transaction remains the purchase proof."}</p>
-      {!record && <button type="button" onClick={anchor} disabled={loading}>{loading ? "Recording…" : `Anchor ${recordType === "analysis" ? "Analysis" : "Protection"} Report on Sui`}</button>}
-      {error && <p className="thetanuts-error" role="alert">{error}</p>}
-      {record && (
-        <div className="protection-success">
-          <strong>{recordType === "analysis" ? "Analysis" : "Protection"} integrity anchored</strong>
-          <span>This {recordType} report hash has already been anchored and cannot be anchored again.</span>
-          <code>{record.report_hash}</code>
-          {record.anchored_at && <time>Anchored {new Date(record.anchored_at).toLocaleString("en-MY")}</time>}
-          {record.sui_object_id && <code>Record object: {record.sui_object_id}</code>}
-          <a href={record.explorer_url} target="_blank" rel="noreferrer">View Sui transaction</a>
-        </div>
-      )}
+      <div className="protection-record-card">
+        <h3>{recordType === "analysis" ? "Analysis integrity record" : "Protection integrity record"}</h3>
+        <p>{recordType === "analysis" ? "Anchor this analysis report hash on Sui to prove the saved report has not changed. This does not purchase protection." : "Anchor the completed option purchase and its linked analysis hash on Sui. The Base transaction remains the purchase proof."}</p>
+        {!record && <button type="button" onClick={anchor} disabled={loading}>{loading ? "Recording…" : `Anchor ${recordType === "analysis" ? "Analysis" : "Protection"} Report on Sui`}</button>}
+        {error && <p className="thetanuts-error" role="alert">{error}</p>}
+        {record && (
+          <div className="protection-success">
+            <div className="protection-success-heading">
+              <strong>{recordType === "analysis" ? "Analysis" : "Protection"} integrity anchored</strong>
+              <span>This {recordType} report hash has already been anchored and cannot be anchored again.</span>
+            </div>
+            <div className="protection-record-data"><span>Report hash</span><code>{record.report_hash}</code></div>
+            {record.anchored_at && <div className="protection-record-data protection-record-time"><span>Anchored</span><time>{new Date(record.anchored_at).toLocaleString("en-MY")}</time></div>}
+            {record.sui_object_id && <div className="protection-record-data"><span>Record object</span><code>{record.sui_object_id}</code></div>}
+            <a className="protection-record-link" href={record.explorer_url} target="_blank" rel="noreferrer">View Sui transaction</a>
+          </div>
+        )}
+      </div>
     </section>
   );
 }

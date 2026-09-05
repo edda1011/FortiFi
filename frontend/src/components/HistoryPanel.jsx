@@ -169,9 +169,11 @@ function HistoryDetail({ detail, loading, account, wallet, onBack, onDelete, onF
         <div><span>Sources</span><strong>{analysis.evidence.length}</strong></div>
       </div>
 
-      <section className="history-assessment">
+      <section className="history-assessment history-saved-assessment">
         <h3>Saved assessment</h3>
-        <p>{analysis.final_assessment.analysis}</p>
+        <div className="history-assessment-card">
+          <p>{analysis.final_assessment.analysis}</p>
+        </div>
       </section>
 
       <section className="history-request-ids">
@@ -336,8 +338,15 @@ function HistoryPanel({ connected, account, wallet, onAnalyzeWithAll }) {
     return (
       <section className="history-shell">
         <div className="history-empty">
+          <span className="history-empty-mark" aria-hidden="true">
+            <svg viewBox="0 0 32 32" fill="none">
+              <path d="M9 6.5h11l4 4V25.5H9z" stroke="currentColor" strokeWidth="1.7" strokeLinejoin="round" />
+              <path d="M20 6.5v4h4M12.5 16h8M12.5 20h6" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
+            </svg>
+          </span>
           <h3>Connect your Base wallet to save history</h3>
           <p>Guest analyses stay only on this page and disappear after refresh.</p>
+          <p className="history-empty-hint">Connect from the header, then completed claim checks will appear here automatically.</p>
         </div>
       </section>
     );

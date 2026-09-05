@@ -417,13 +417,13 @@ function App() {
     <div className="app">
 
       <header className="header">
-        <div>
-          <h1>FortiFi</h1>
+        <div className="brand">
+          <h1>FortiFi<span className="brand-dot" aria-hidden="true">.</span></h1>
         </div>
 
       
 
-        <nav className="nav-tabs">
+        <nav className="nav-tabs" aria-label="Primary navigation">
           <button
             type="button"
             className={
@@ -432,22 +432,11 @@ function App() {
                 : "tab"
             }
             onClick={() => setView("dashboard")}
+            aria-current={view === "dashboard" ? "page" : undefined}
           >
             Dashboard
           </button>
 
-          <button
-            type="button"
-            className={
-              view === "history"
-                ? "tab tab-active"
-                : "tab"
-            }
-            onClick={() => setView("history")}
-          >
-            History
-          </button>
-          
           <button
             type="button"
             className={
@@ -456,8 +445,18 @@ function App() {
                 : "tab"
             }
             onClick={() => setView("claim")}
+            aria-current={view === "claim" ? "page" : undefined}
           >
             Claim Check
+          </button>
+
+          <button
+            type="button"
+            className={view === "history" ? "tab tab-active" : "tab"}
+            onClick={() => setView("history")}
+            aria-current={view === "history" ? "page" : undefined}
+          >
+            History
           </button>
 
           <button
@@ -468,6 +467,7 @@ function App() {
                 : "tab"
             }
             onClick={() => setView("wallet")}
+            aria-current={view === "wallet" ? "page" : undefined}
           >
             Wallet
           </button>
@@ -497,7 +497,23 @@ function App() {
       </header>
 
 
-      <main className="main">
+      <main className={`main main-${view}`}>
+
+        {view !== "dashboard" && (
+          <section className="subpage-hero">
+            <span className="dashboard-eyebrow">
+              {view === "claim" ? "Independent AI verification" : view === "history" ? "Your evidence archive" : "Base wallet intelligence"}
+            </span>
+            <h2>{view === "claim" ? "Check a Claim" : view === "history" ? "Analysis History" : "Check a Wallet"}</h2>
+            <p>
+              {view === "claim"
+                ? "Analyze potentially misleading financial information with independent AI perspectives, retained evidence, and a clear verification plan."
+                : view === "history"
+                  ? "Review saved analyses, model reasoning, Sui integrity records, and completed protection in one place."
+                  : "Inspect any public Base address and understand its ETH exposure without connecting it or exposing private wallet credentials."}
+            </p>
+          </section>
+        )}
 
         {view === "dashboard" && <Dashboard account={account} wallet={connectedWallet} onCheckHeadline={handleHeadlineForClaimCheck} />}
 
@@ -749,17 +765,18 @@ function App() {
 
 
             <div className="summary">
-
               <h3>Consensus Assessment</h3>
 
-              <p>
-                {result.final_assessment.analysis}
-              </p>
+              <div className="summary-card">
+                <p>
+                  {result.final_assessment.analysis}
+                </p>
 
-              <small className="summary-source">
-                Locally synthesized from {result.consensus.model_results.length} of 3
-                independent AI assessments. No additional AI request was used.
-              </small>
+                <small className="summary-source">
+                  Locally synthesized from {result.consensus.model_results.length} of 3
+                  independent AI assessments. No additional AI request was used.
+                </small>
+              </div>
 
             </div>
 
