@@ -10,7 +10,7 @@ FortiFi verifies financial claims with multiple AI models, turns detected ETH ri
 4. **Execute** — The user approves and purchases the selected option from their own wallet on Base mainnet. FortiFi never holds the user's keys.
 5. **Prove** — The analysis report can be anchored on Sui before purchase. After a successful hedge, a separate protection record links the analysis hash to its Base transaction.
 
-## Hackathon tracks
+## Submitted Hackathon tracks
 
 - **AI x Options** — AI-assisted ETH risk analysis connected to live Thetanuts option recommendations.
 - **Best Product Built on the Thetanuts SDK** — Live OptionBook discovery, filtering, re-quoting, USDC approval, and purchase flow using `@thetanuts-finance/thetanuts-client`.
@@ -144,3 +144,13 @@ Anchoring stores hashes and transaction references, not private report contents.
 - The Base wallet always displays and confirms approval and purchase transactions.
 - The backend Sui account sponsors only Sui testnet integrity records; it is not a user credential or payment wallet.
 - This prototype provides risk information and workflow assistance, not financial advice.
+
+## Demo Flow
+
+1. Connect a Base wallet.
+2. Submit a financial claim or article.
+3. Review Gonka multi-model verification and risk assessment.
+4. View live ETH protection choices from Thetanuts.
+5. Select a hedge and confirm the Base transaction.
+6. Anchor the analysis or completed protection record on Sui.
+7. Review the result in wallet-scoped History.
