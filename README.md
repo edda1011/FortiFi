@@ -154,3 +154,20 @@ Anchoring stores hashes and transaction references, not private report contents.
 5. Select a hedge and confirm the Base transaction.
 6. Anchor the analysis or completed protection record on Sui.
 7. Review the result in wallet-scoped History.
+
+## Deployment Notes
+
+The public deployment is intended for functional demonstration.
+
+The following features are available online:
+- Gonka-based claim verification
+- Base wallet connection and read-only portfolio checks
+- Live Thetanuts option discovery and recommendation flow
+- Wallet-scoped history during the current deployment session
+
+Known deployment limitations:
+- Sui anchoring may be unavailable in the hosted deployment because the production server does not include the local Sui CLI/keystore setup used during development.
+- SQLite storage on the free hosting tier is not guaranteed to persist across service restarts or redeployments.
+- The Render free instance may cold-start after inactivity, so the first request can take longer than usual.
+
+For the full development setup, including Sui integrity anchoring, run FortiFi locally using the setup steps below.
