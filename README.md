@@ -41,7 +41,7 @@ FastAPI + SQLite ---- Gonka Router (multi-model analysis)
        +------------- Sui CLI + Move contract (Sui testnet)
 ```
 
-The Base wallet is the user's credential and transaction signer. The backend only reads public balances and verifies signed authentication messages. Sui anchoring is sponsored by the backend's testnet account, while the user's Base signature proves ownership of the report being anchored.
+The Base wallet is the user's credential and transaction signer. The backend only reads public balances and verifies signed authentication messages. Sui anchoring is sponsored by FortiFi's backend testnet account, while the user's Base wallet signature authorizes the report to be anchored.
 
 ## Prerequisites
 
@@ -51,7 +51,7 @@ The Base wallet is the user's credential and transaction signer. The backend onl
 - A Gonka Router API key
 - Sui CLI only if you want to create Sui integrity records
 
-The protection purchase flow uses **Base mainnet** and creates real transactions. A purchase requires enough native Base ETH for gas and enough native Base USDC for the selected option. Claim analysis, wallet checks, and recommendation previews do not purchase anything.
+The protection purchase flow uses **Base mainnet** and creates real transactions. A purchase requires enough native Base ETH for gas and enough native Base USDC for the selected option. Claim analysis, wallet checks, and recommendation previews do not purchase anything. A transaction is only created after the user explicitly confirms the selected protection.
 
 ## Local setup
 
