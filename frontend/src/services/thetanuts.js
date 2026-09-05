@@ -2,7 +2,8 @@ import { buildProtectionChoices } from "./hedgeRecommendation";
 
 const BASE_CHAIN_ID = 8453;
 const BASE_RPC_URL = "https://mainnet.base.org";
-const FORTIFI_API_URL = "http://127.0.0.1:8000";
+const FORTIFI_API_URL =
+  import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000";
 const BASE_USDC = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913";
 let client;
 
