@@ -8,9 +8,11 @@ import {
   fetchTrash,
   permanentlyDeleteHistory,
   restoreHistory,
+  saveHedgeExecution,
 } from "../api/history";
 import ReasoningTrace from "./ReasoningTrace.jsx";
 import ProtectionRecordPanel from "./ProtectionRecordPanel.jsx";
+import ThetanutsHedgePanel from "./ThetanutsHedgePanel.jsx";
 
 
 function formatPercentage(value) {
@@ -85,11 +87,12 @@ function HistoryList({ items, selectedId, onSelect }) {
 }
 
 
-function HistoryDetail({ detail, loading, account, onBack, onDelete, onFollowUp, onAnalyzeWithAll, onAnchored }) {
+function HistoryDetail({ detail, loading, account, wallet, onBack, onDelete, onFollowUp, onAnalyzeWithAll, onAnchored, onHedgePurchased }) {
   const [question, setQuestion] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [showProtection, setShowProtection] = useState(false);
 
   async function handleSubmit(event) {
     event.preventDefault();
@@ -114,6 +117,7 @@ function HistoryDetail({ detail, loading, account, onBack, onDelete, onFollowUp,
 
   const { analysis } = detail;
   const modelCount = analysis.consensus.model_results.length;
+  const isEthReport = analysis.detected_assets?.includes("ETH");
 
   return (
     <article className="history-detail">
@@ -200,12 +204,54 @@ function HistoryDetail({ detail, loading, account, onBack, onDelete, onFollowUp,
         </section>
       )}
 
+      {detail.hedge_execution && (
+        <section className="history-assessment">
+          <h3>Executed ETH protection</h3>
+          <p><strong>{detail.hedge_execution.profile}</strong> · {formatPercentage(detail.hedge_execution.premium / detail.hedge_execution.max_budget)} of the selected budget used</p>
+          <p>Strike {detail.hedge_execution.strike.toLocaleString("en-US", { style: "currency", currency: "USD" })} · expires {new Date(detail.hedge_execution.expiry).toLocaleDateString("en-MY")}</p>
+          <p>{detail.hedge_execution.recommendation_reason}</p>
+          <a href={`https://basescan.org/tx/${detail.hedge_execution.transaction_hash}`} target="_blank" rel="noreferrer">View Base transaction</a>
+        </section>
+      )}
+
+      {isEthReport && (
+        <section className="history-current-protection">
+          <div>
+            <h3>Current ETH protection</h3>
+            <p>Check today’s live Thetanuts orders for this saved report. Historical quotes are never reused.</p>
+          </div>
+          {!showProtection && <button type="button" onClick={() => setShowProtection(true)}>Find Current Protection</button>}
+          {showProtection && (
+            <ThetanutsHedgePanel
+              detectedAssets={analysis.detected_assets || []}
+              detectionSources={analysis.asset_detection_sources || []}
+              account={account}
+              wallet={wallet}
+              riskLevel={analysis.consensus.market_impact}
+              ethExposurePercent={analysis.portfolio_context?.allocations?.ETH || 0}
+              onPurchased={onHedgePurchased}
+            />
+          )}
+        </section>
+      )}
+
       <ProtectionRecordPanel
         analysisId={analysis.analysis_id}
         account={account}
-        initialRecord={detail.protection_record}
+        recordType="analysis"
+        initialRecord={detail.analysis_record}
         onAnchored={onAnchored}
       />
+
+      {detail.hedge_execution && (
+        <ProtectionRecordPanel
+          analysisId={analysis.analysis_id}
+          account={account}
+          recordType="protection"
+          initialRecord={detail.protection_record}
+          onAnchored={onAnchored}
+        />
+      )}
 
       <section className="follow-up-section">
         <div className="follow-up-heading">
@@ -252,7 +298,7 @@ function HistoryDetail({ detail, loading, account, onBack, onDelete, onFollowUp,
 }
 
 
-function HistoryPanel({ connected, account, onAnalyzeWithAll }) {
+function HistoryPanel({ connected, account, wallet, onAnalyzeWithAll }) {
   const [items, setItems] = useState([]);
   const [selectedId, setSelectedId] = useState(null);
   const [detail, setDetail] = useState(null);
@@ -320,9 +366,32 @@ function HistoryPanel({ connected, account, onAnalyzeWithAll }) {
     }));
   }
 
-  function markSelectedAnchored(record) {
-    setDetail((current) => ({ ...current, protection_record: record }));
-    setItems((current) => current.map((item) => (
+  async function saveHistoryHedge(transactionHash, execution) {
+    if (!selectedId || !execution) return;
+    try {
+      await saveHedgeExecution(selectedId, {
+        profile: execution.profile.label,
+        recommendation_reason: execution.reason,
+        eth_spot: execution.spotPrice,
+        max_budget: Number(execution.maxSpend),
+        premium: execution.budget,
+        strike: execution.strike,
+        expiry: execution.expiry,
+        option_quantity: execution.contracts,
+        settlement: execution.settlement,
+        market_snapshot_at: execution.updatedAt || new Date().toISOString(),
+        transaction_hash: transactionHash,
+      });
+      setDetail(await fetchHistoryDetail(selectedId));
+      window.dispatchEvent(new Event("fortifi:history-changed"));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "The purchase succeeded, but its history record could not be refreshed.");
+    }
+  }
+
+  function markSelectedAnchored(recordType, record) {
+    setDetail((current) => ({ ...current, [`${recordType}_record`]: record }));
+    if (recordType === "analysis") setItems((current) => current.map((item) => (
       item.analysis_id === selectedId ? { ...item, anchored: true } : item
     )));
     window.dispatchEvent(new Event("fortifi:history-changed"));
@@ -428,11 +497,13 @@ function HistoryPanel({ connected, account, onAnalyzeWithAll }) {
           detail={detail}
           loading={detailLoading}
           account={account}
+          wallet={wallet}
           onBack={() => { setSelectedId(null); setDetail(null); setError(""); }}
           onDelete={removeSelectedHistory}
           onFollowUp={submitFollowUp}
           onAnalyzeWithAll={onAnalyzeWithAll}
           onAnchored={markSelectedAnchored}
+          onHedgePurchased={saveHistoryHedge}
         />
       ) : (
         <>

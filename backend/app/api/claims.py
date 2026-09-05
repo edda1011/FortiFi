@@ -10,6 +10,8 @@ from app.schemas.analysis import (
     FollowUpRequest,
     HistoryDetail,
     HistorySummary,
+    HedgeExecution,
+    HedgeExecutionRequest,
 )
 from app.schemas.analysis_job import AnalysisJobRequest, AnalysisJobResponse
 from app.services.analysis_job_service import (
@@ -164,6 +166,18 @@ async def claim_history_detail(
 ):
     try:
         return history_service.get(analysis_id, owner_address)
+    except HistoryNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@router.post("/history/{analysis_id}/hedge", response_model=HedgeExecution)
+async def save_claim_hedge(
+    analysis_id: str,
+    request: HedgeExecutionRequest,
+    owner_address: str = Depends(require_wallet),
+):
+    try:
+        return history_service.save_hedge(analysis_id, owner_address, request)
     except HistoryNotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 

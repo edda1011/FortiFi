@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from app.schemas.analysis import DeletedHistorySummary, FollowUpEntry, HistoryDetail, HistorySummary
+from app.schemas.analysis import DeletedHistorySummary, FollowUpEntry, HedgeExecution, HedgeExecutionRequest, HistoryDetail, HistorySummary
 from app.services.analysis_store import AnalysisStore
 from app.services.gonka_service import GonkaService
 
@@ -44,6 +44,12 @@ class HistoryService:
     def permanently_delete(self, analysis_id: str, owner_address: str) -> None:
         if not self.store.permanently_delete(analysis_id, owner_address):
             raise HistoryNotFoundError("Deleted analysis was not found.")
+
+    def save_hedge(self, analysis_id: str, owner_address: str, request: HedgeExecutionRequest) -> HedgeExecution:
+        try:
+            return self.store.save_hedge_execution(analysis_id, owner_address, request)
+        except ValueError as exc:
+            raise HistoryNotFoundError(str(exc)) from exc
 
     async def answer_follow_up(
         self,

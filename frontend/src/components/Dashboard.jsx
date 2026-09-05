@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 
 import { fetchDashboard, fetchDashboardNews } from "../api/dashboard";
+import { analyzeRisk } from "../api/risk";
 
 
 function formatUsd(value) {
@@ -120,8 +121,24 @@ function PortfolioCard({ wallet }) {
 }
 
 
-function RiskCard({ risk }) {
-  if (!risk) {
+function RiskCard({ risk, wallet, onCalculated }) {
+  const [scenario, setScenario] = useState("0.10");
+  const [calculating, setCalculating] = useState(false);
+  const [calculationError, setCalculationError] = useState("");
+
+  async function calculate() {
+    setCalculating(true);
+    setCalculationError("");
+    try {
+      onCalculated(await analyzeRisk(wallet.address, Number(scenario)));
+    } catch (error) {
+      setCalculationError(error instanceof Error ? error.message : "Risk calculation failed.");
+    } finally {
+      setCalculating(false);
+    }
+  }
+
+  if (!wallet) {
     return (
       <section className="dash-card">
         <div className="dash-card-header">
@@ -129,8 +146,8 @@ function RiskCard({ risk }) {
           <span className="dash-card-sub">Scenario analysis</span>
         </div>
         <EmptyState
-          title="No risk assessed yet"
-          message="Run a risk analysis to estimate potential loss under a downside scenario."
+          title="Connect a wallet to assess risk"
+          message="FortiFi needs the wallet's live ETH value to estimate loss under a downside scenario."
         />
       </section>
     );
@@ -140,9 +157,21 @@ function RiskCard({ risk }) {
     <section className="dash-card">
       <div className="dash-card-header">
         <h3>Risk Assessment</h3>
-        <RiskBadge level={risk.risk_level} />
+        {risk ? <RiskBadge level={risk.risk_level} /> : <span className="dash-card-sub">Scenario analysis</span>}
       </div>
 
+      <div className="risk-controls">
+        <label htmlFor="risk-scenario">Assumed ETH decline</label>
+        <select id="risk-scenario" value={scenario} onChange={(event) => setScenario(event.target.value)} disabled={calculating}>
+          <option value="0.10">10%</option>
+          <option value="0.20">20%</option>
+          <option value="0.30">30%</option>
+        </select>
+        <button type="button" onClick={calculate} disabled={calculating}>{calculating ? "Calculating…" : risk ? "Recalculate" : "Calculate Risk"}</button>
+      </div>
+      {calculationError && <p className="dashboard-inline-error" role="alert">{calculationError}</p>}
+
+      {risk ? <>
       <div className="dash-hero">
         <div className="dash-hero-label">Estimated Loss</div>
         <div className="dash-hero-value">
@@ -157,9 +186,9 @@ function RiskCard({ risk }) {
           <em>ETH value at risk</em>
         </div>
         <div className="dash-stat">
-          <span>Scenario</span>
-          <strong>{formatPercent(risk.scenario_downside)}</strong>
-          <em>assumed downside</em>
+          <span>Portfolio impact</span>
+          <strong>{risk.wallet.total_value > 0 ? formatPercent(risk.estimated_loss / risk.wallet.total_value) : "0.0%"}</strong>
+          <em>of tracked value</em>
         </div>
       </div>
 
@@ -168,6 +197,7 @@ function RiskCard({ risk }) {
         {formatPercent(risk.scenario_downside)} ={" "}
         <strong>{formatUsd(risk.estimated_loss)}</strong>
       </div>
+      </> : <EmptyState title="Choose a scenario" message="Calculate how a possible ETH decline could affect this wallet's current portfolio." />}
     </section>
   );
 }
@@ -245,9 +275,21 @@ function NewsCard({ news, onCheckHeadline }) {
 }
 
 
-function ProtectionCard() {
-  // Placeholder for the protection recommendation summary.
-  // The Thetanuts milestone will populate this.
+function ProtectionCard({ execution }) {
+  if (execution) {
+    return (
+      <section className="dash-card">
+        <div className="dash-card-header"><h3>Protection</h3><span className="protection-active">Purchased</span></div>
+        <div className="dash-hero"><div className="dash-hero-label">{execution.profile}</div><div className="dash-hero-value">{formatUsd(execution.premium)}</div></div>
+        <div className="dash-stats">
+          <div className="dash-stat"><span>Strike</span><strong>{formatUsd(execution.strike)}</strong><em>{execution.option_quantity.toFixed(6)} contracts</em></div>
+          <div className="dash-stat"><span>Expiry</span><strong>{new Date(execution.expiry).toLocaleDateString("en-MY")}</strong><em>{execution.settlement} settlement</em></div>
+        </div>
+        <a className="dashboard-transaction-link" href={`https://basescan.org/tx/${execution.transaction_hash}`} target="_blank" rel="noreferrer">View Base transaction</a>
+      </section>
+    );
+  }
+
   return (
     <section className="dash-card">
       <div className="dash-card-header">
@@ -255,8 +297,8 @@ function ProtectionCard() {
         <span className="dash-card-sub">Recommended hedge</span>
       </div>
       <EmptyState
-        title="No protection recommended yet"
-        message="Once risk is assessed, FortiFi will suggest a defined-risk hedge."
+        title="No protection purchased yet"
+        message="A completed Thetanuts purchase will appear here with its current contract details and Base transaction."
       />
     </section>
   );
@@ -265,6 +307,7 @@ function ProtectionCard() {
 
 function Dashboard({ account, wallet, onCheckHeadline }) {
   const [summary, setSummary] = useState(null);
+  const [risk, setRisk] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [news, setNews] = useState([]);
@@ -306,6 +349,10 @@ function Dashboard({ account, wallet, onCheckHeadline }) {
     };
   }, [account]);
 
+  useEffect(() => {
+    setRisk(null);
+  }, [account]);
+
   return (
     <div className="dashboard">
       <div className="dashboard-hero">
@@ -335,9 +382,9 @@ function Dashboard({ account, wallet, onCheckHeadline }) {
       {!loading && !error && (
         <div className="dash-grid">
           <PortfolioCard wallet={wallet} />
-          <RiskCard risk={summary?.risk} />
+          <RiskCard risk={risk} wallet={wallet} onCalculated={setRisk} />
           <AIConsensusCard analysis={summary?.latest_analysis} />
-          <ProtectionCard />
+          <ProtectionCard execution={summary?.latest_hedge_execution} />
           <NewsCard news={news} onCheckHeadline={onCheckHeadline} />
         </div>
       )}

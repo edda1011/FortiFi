@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 
 import { analyzeClaim } from "./api/claims";
-import { findRecentClaim } from "./api/history";
+import { findRecentClaim, saveHedgeExecution } from "./api/history";
 import { connectBaseWallet, disconnectBaseWallet, savedWalletAddress } from "./api/auth";
 import { checkConnectedWallet, checkWallet, getWalletHistory } from "./api/wallet";
 import Dashboard from "./components/Dashboard.jsx";
@@ -14,6 +14,10 @@ import WalletPanel from "./components/WalletPanel.jsx";
 
 function formatPercentage(value) {
   return `${(value * 100).toFixed(1)}%`;
+}
+
+function cleanRecommendationTitle(title) {
+  return title.replace(/^Verify before acting:\s*/i, "").replace(/[.]$/, "");
 }
 
 
@@ -262,6 +266,36 @@ function App() {
     setViewingPreviousFastReport(false);
   }
 
+  function handleClearWalletCheck() {
+    setWalletAddress("");
+    setWalletResult(null);
+    setWalletHistory([]);
+    setWalletError("");
+  }
+
+  function handleHedgePurchased(transactionHash, execution) {
+    if (!account || !result?.analysis_id || !execution) {
+      setHedgeTransaction(transactionHash);
+      return;
+    }
+    saveHedgeExecution(result.analysis_id, {
+      profile: execution.profile.label,
+      recommendation_reason: execution.reason,
+      eth_spot: execution.spotPrice,
+      max_budget: Number(execution.maxSpend),
+      premium: execution.budget,
+      strike: execution.strike,
+      expiry: execution.expiry,
+      option_quantity: execution.contracts,
+      settlement: execution.settlement,
+      market_snapshot_at: execution.updatedAt || new Date().toISOString(),
+      transaction_hash: transactionHash,
+    }).then(() => {
+      setHedgeTransaction(transactionHash);
+      window.dispatchEvent(new Event("fortifi:history-changed"));
+    }).catch(() => {});
+  }
+
   async function handleWalletSubmit(event) {
     event.preventDefault();
 
@@ -476,10 +510,11 @@ function App() {
             loading={walletLoading}
             error={walletError}
             onSubmit={handleWalletSubmit}
+            onClear={handleClearWalletCheck}
           />
         )}
 
-        {view === "history" && <HistoryPanel key={account || "guest"} connected={Boolean(account)} account={account} onAnalyzeWithAll={analyzeWithAllModels} />}
+        {view === "history" && <HistoryPanel key={account || "guest"} connected={Boolean(account)} account={account} wallet={connectedWallet} onAnalyzeWithAll={analyzeWithAllModels} />}
 
         {view === "claim" && (
         <>
@@ -777,28 +812,19 @@ function App() {
 
               <section className="recommendation-section">
                 <div className="recommendation-heading">
-                  <div>
-                    <span className="dashboard-eyebrow">Next-step plan</span>
-                    <h3>Recommendations</h3>
-                  </div>
-                  <span className="recommendation-status">
-                    {result.portfolio_context?.wallet_connected ? "Wallet context included" : "Review required"}
-                  </span>
+                  <h3>Missing Information to Check</h3>
                 </div>
                 <p className="recommendation-context">
-                  {result.portfolio_context?.wallet_connected
-                    ? `Recommendations considered your ${result.portfolio_context.network} portfolio allocation locally. No wallet address was sent to an AI model.`
-                    : "No wallet is connected, so these recommendations are based only on the claim and evidence."}
+                  The models could not verify the points below from the available evidence. Check them with independent sources before relying on this claim.
                 </p>
+                <p className="recommendation-next-step"><strong>Next step:</strong> For each item, look for an official filing, project documentation, or another independent source that confirms the information.</p>
                 {result.recommendations.length > 0 ? result.recommendations.map((recommendation, index) => (
                   <article className="recommendation-card" key={`${recommendation.title}-${index}`}>
                     <div className="recommendation-card-head">
-                      <h4>{recommendation.title}</h4>
-                      <span>{recommendation.automation_eligible ? "Automation-ready plan" : "Manual plan"}</span>
+                      <span className="recommendation-index">{index + 1}</span>
+                      <h4>{cleanRecommendationTitle(recommendation.title)}</h4>
+                      <span className="recommendation-state">Not verified</span>
                     </div>
-                    {recommendation.rationale && <p>{recommendation.rationale}</p>}
-                    {recommendation.steps.length > 0 && <ol>{recommendation.steps.map((step, stepIndex) => <li key={`${step}-${stepIndex}`}>{step}</li>)}</ol>}
-                    <small>No action is performed here. Any future automation must show this plan and get explicit user confirmation.</small>
                   </article>
                 )) : <p className="recommendation-empty">No next-step plan was generated. Review the evidence and model assessment before taking action.</p>}
               </section>
@@ -807,14 +833,25 @@ function App() {
                 detectedAssets={result.detected_assets || []}
                 detectionSources={result.asset_detection_sources || []}
                 account={account}
-                onPurchased={setHedgeTransaction}
+                wallet={connectedWallet}
+                riskLevel={result.consensus.market_impact}
+                ethExposurePercent={result.portfolio_context?.allocations?.ETH || 0}
+                onPurchased={handleHedgePurchased}
               />
 
               <ProtectionRecordPanel
                 analysisId={result.analysis_id}
                 account={account}
-                baseTransaction={hedgeTransaction}
+                recordType="analysis"
               />
+
+              {hedgeTransaction && (
+                <ProtectionRecordPanel
+                  analysisId={result.analysis_id}
+                  account={account}
+                  recordType="protection"
+                />
+              )}
 
             </div>
 

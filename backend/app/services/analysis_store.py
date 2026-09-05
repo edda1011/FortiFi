@@ -14,6 +14,8 @@ from app.schemas.analysis import (
     DeletedHistorySummary,
     HistoryDetail,
     HistorySummary,
+    HedgeExecution,
+    HedgeExecutionRequest,
 )
 from app.schemas.protection import ProtectionRecordResponse
 
@@ -65,6 +67,35 @@ class AnalysisStore:
                     FOREIGN KEY (analysis_id)
                         REFERENCES claim_analyses (analysis_id)
                         ON DELETE CASCADE
+                )
+            """)
+            connection.execute("""
+                CREATE TABLE IF NOT EXISTS integrity_records (
+                    analysis_id TEXT NOT NULL,
+                    owner_address TEXT NOT NULL,
+                    record_type TEXT NOT NULL,
+                    report_hash TEXT NOT NULL UNIQUE,
+                    sui_digest TEXT NOT NULL,
+                    sui_object_id TEXT,
+                    anchored_at TEXT NOT NULL,
+                    PRIMARY KEY (analysis_id, record_type),
+                    FOREIGN KEY (analysis_id)
+                        REFERENCES claim_analyses (analysis_id)
+                        ON DELETE CASCADE
+                )
+            """)
+            connection.execute(
+                "INSERT OR IGNORE INTO integrity_records "
+                "(analysis_id, owner_address, record_type, report_hash, sui_digest, sui_object_id, anchored_at) "
+                "SELECT analysis_id, owner_address, 'analysis', report_hash, sui_digest, sui_object_id, anchored_at "
+                "FROM protection_records"
+            )
+            connection.execute("""
+                CREATE TABLE IF NOT EXISTS hedge_executions (
+                    analysis_id TEXT PRIMARY KEY,
+                    owner_address TEXT NOT NULL,
+                    payload TEXT NOT NULL,
+                    FOREIGN KEY (analysis_id) REFERENCES claim_analyses (analysis_id) ON DELETE CASCADE
                 )
             """)
             self._purge_expired(connection)
@@ -247,22 +278,49 @@ class AnalysisStore:
                 )
                 for follow_up_id, question, answer, created_at in follow_up_rows
             ],
-            protection_record=self.get_protection_record(analysis_id, owner_address),
+            analysis_record=self.get_integrity_record(analysis_id, owner_address, "analysis"),
+            protection_record=self.get_integrity_record(analysis_id, owner_address, "protection"),
+            hedge_execution=self.get_hedge_execution(analysis_id, owner_address),
         )
+
+    def get_hedge_execution(self, analysis_id: str, owner_address: str) -> HedgeExecution | None:
+        with self._connect() as connection:
+            row = connection.execute(
+                "SELECT payload FROM hedge_executions WHERE analysis_id = ? AND owner_address = ?",
+                (analysis_id, owner_address.lower()),
+            ).fetchone()
+        return HedgeExecution.model_validate_json(row[0]) if row else None
+
+    def save_hedge_execution(self, analysis_id: str, owner_address: str, request: HedgeExecutionRequest) -> HedgeExecution:
+        if self.get(analysis_id, owner_address) is None:
+            raise ValueError("Analysis history entry was not found.")
+        execution = HedgeExecution(**request.model_dump(), executed_at=datetime.now(timezone.utc).isoformat())
+        with self._connect() as connection:
+            connection.execute(
+                "INSERT OR REPLACE INTO hedge_executions (analysis_id, owner_address, payload) VALUES (?, ?, ?)",
+                (analysis_id, owner_address.lower(), execution.model_dump_json()),
+            )
+        return execution
 
     def get_protection_record(
         self, analysis_id: str, owner_address: str
     ) -> ProtectionRecordResponse | None:
+        return self.get_integrity_record(analysis_id, owner_address, "analysis")
+
+    def get_integrity_record(
+        self, analysis_id: str, owner_address: str, record_type: str
+    ) -> ProtectionRecordResponse | None:
         with self._connect() as connection:
             row = connection.execute(
                 "SELECT report_hash, sui_digest, sui_object_id, anchored_at "
-                "FROM protection_records WHERE analysis_id = ? AND owner_address = ?",
-                (analysis_id, owner_address.lower()),
+                "FROM integrity_records WHERE analysis_id = ? AND owner_address = ? AND record_type = ?",
+                (analysis_id, owner_address.lower(), record_type),
             ).fetchone()
         if row is None:
             return None
         report_hash, digest, object_id, anchored_at = row
         return ProtectionRecordResponse(
+            record_type=record_type,
             report_hash=report_hash,
             sui_digest=digest,
             sui_object_id=object_id,
@@ -278,15 +336,28 @@ class AnalysisStore:
         sui_digest: str,
         sui_object_id: str | None,
     ) -> ProtectionRecordResponse:
+        return self.save_integrity_record(
+            analysis_id, owner_address, "analysis", report_hash, sui_digest, sui_object_id
+        )
+
+    def save_integrity_record(
+        self,
+        analysis_id: str,
+        owner_address: str,
+        record_type: str,
+        report_hash: str,
+        sui_digest: str,
+        sui_object_id: str | None,
+    ) -> ProtectionRecordResponse:
         anchored_at = datetime.now(timezone.utc).isoformat()
         with self._connect() as connection:
             connection.execute(
-                "INSERT OR IGNORE INTO protection_records "
-                "(analysis_id, owner_address, report_hash, sui_digest, sui_object_id, anchored_at) "
-                "VALUES (?, ?, ?, ?, ?, ?)",
-                (analysis_id, owner_address.lower(), report_hash, sui_digest, sui_object_id, anchored_at),
+                "INSERT OR IGNORE INTO integrity_records "
+                "(analysis_id, owner_address, record_type, report_hash, sui_digest, sui_object_id, anchored_at) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?)",
+                (analysis_id, owner_address.lower(), record_type, report_hash, sui_digest, sui_object_id, anchored_at),
             )
-        return self.get_protection_record(analysis_id, owner_address)
+        return self.get_integrity_record(analysis_id, owner_address, record_type)
 
     def save_follow_up(
         self,

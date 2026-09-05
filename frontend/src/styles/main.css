@@ -150,6 +150,8 @@ button:hover:not(:disabled) {
   gap: 6px;
 }
 
+.wallet-form-actions { display: flex; gap: 10px; }
+
 .claim-actions {
   display: flex;
   gap: 10px;
@@ -697,16 +699,16 @@ button:disabled {
 .model-coverage-fast { color: #a16207; }
 .model-coverage-full { color: #0f766e; }
 .history-detail-badges { display: flex; align-items: center; gap: 10px; }
-.recommendation-heading, .recommendation-card-head, .headline-dialog-actions { display: flex; gap: 12px; align-items: center; justify-content: space-between; }
-.recommendation-heading h3 { margin: 4px 0 0; }
-.recommendation-status { border-radius: 999px; background: #dbeafe; color: #1d4ed8; font-size: 12px; font-weight: 700; padding: 6px 10px; }
+.recommendation-heading, .headline-dialog-actions { display: flex; gap: 12px; align-items: center; justify-content: space-between; }
+.recommendation-heading h3 { margin: 0; }
 .recommendation-card { margin-top: 14px; padding: 18px; border: 1px solid #dbeafe; border-radius: 10px; background: white; }
+.recommendation-card-head { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 12px; align-items: center; }
 .recommendation-card h4 { margin: 0; color: #0f172a; }
-.recommendation-card-head span { color: #0369a1; font-size: 12px; font-weight: 700; }
-.recommendation-card p, .recommendation-card li, .recommendation-empty { color: #475569; line-height: 1.6; }
+.recommendation-index { display: grid; place-items: center; width: 28px; height: 28px; border-radius: 50%; background: #e0f2fe; color: #075985; font-size: 13px; font-weight: 800; }
+.recommendation-state { color: #92400e; background: #fef3c7; border-radius: 999px; padding: 5px 9px; font-size: 12px; font-weight: 700; }
+.recommendation-empty { color: #475569; line-height: 1.6; }
 .recommendation-context { color: #475569; line-height: 1.5; margin: 14px 0 0; }
-.recommendation-card ol { margin: 12px 0; padding-left: 22px; }
-.recommendation-card small { color: #64748b; }
+.recommendation-next-step { color: #334155; line-height: 1.5; margin: 10px 0 18px; }
 
 .thetanuts-hedge {
   margin-top: 28px;
@@ -834,6 +836,44 @@ button:disabled {
   font-size: 13px;
 }
 
+
+.hedge-preferences { display: grid; grid-template-columns: minmax(180px, .7fr) minmax(360px, 1.5fr) auto; gap: 18px; align-items: end; margin-top: 20px; padding: 18px; border-radius: 12px; background: #fff; }
+.hedge-preferences > label, .hedge-preferences legend { color: #0f172a; font-weight: 700; }
+.hedge-budget-input { display: flex; align-items: center; gap: 8px; margin-top: 8px; color: #475569; font-weight: 600; }
+.hedge-budget-input input { width: 120px; }
+.hedge-preferences fieldset { display: flex; flex-wrap: wrap; gap: 10px 18px; margin: 0; padding: 0; border: 0; }
+.hedge-preferences fieldset legend { margin-bottom: 10px; }
+.hedge-preferences fieldset label { display: flex; align-items: center; gap: 7px; color: #475569; }
+.hedge-context-note { padding: 10px 12px; border-radius: 8px; background: #ccfbf1; color: #115e59 !important; }
+.hedge-results { margin-top: 18px; }
+.hedge-market-summary { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 14px; }
+.hedge-market-summary span { color: #64748b; font-size: 13px; }
+.hedge-market-summary strong { display: block; margin-top: 4px; color: #0f172a; font-size: 15px; }
+.hedge-choice-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+.hedge-choice { padding: 18px; border: 1px solid #cbd5e1; border-radius: 12px; background: #fff; }
+.hedge-choice-selected { border-color: #0f766e; box-shadow: 0 8px 22px rgb(15 118 110 / 10%); }
+.hedge-choice p, .hedge-technical p { color: #475569; line-height: 1.55; }
+.hedge-choice-metrics { display: grid; gap: 8px; margin-top: 16px; }
+.hedge-choice-metrics div { display: flex; justify-content: space-between; gap: 12px; padding: 8px 0; border-bottom: 1px solid #e2e8f0; }
+.hedge-choice-metrics span { color: #64748b; font-size: 13px; }
+.hedge-choice-metrics strong { color: #0f172a; }
+.hedge-technical { margin: 14px 0; }
+.hedge-technical summary { cursor: pointer; color: #0f766e; font-weight: 700; }
+.hedge-technical dl { margin: 12px 0 0; }
+.hedge-technical dl div { display: grid; grid-template-columns: 110px minmax(0, 1fr); gap: 8px; padding: 8px 0; }
+.hedge-technical dt { color: #64748b; }
+.hedge-technical dd { margin: 0; overflow-wrap: anywhere; color: #0f172a; }
+.hedge-purchase { margin-top: 16px; }
+
+@media (max-width: 900px) {
+  .hedge-preferences { grid-template-columns: 1fr; align-items: stretch; }
+  .hedge-choice-grid, .hedge-market-summary { grid-template-columns: 1fr 1fr; }
+}
+
+@media (max-width: 600px) {
+  .hedge-choice-grid, .hedge-market-summary { grid-template-columns: 1fr; }
+  .thetanuts-heading, .hedge-preview-head { align-items: flex-start; }
+}
 
 .error {
   border-color: #fecaca;
@@ -1734,6 +1774,29 @@ button:disabled {
   color: #0f172a;
 }
 
+.risk-controls { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px 12px; margin-bottom: 16px; }
+.risk-controls label { grid-column: 1 / -1; color: #475569; font-size: 13px; font-weight: 700; }
+.risk-controls select { min-width: 0; border: 1px solid #cbd5e1; border-radius: 8px; background: white; color: #0f172a; padding: 10px 12px; }
+.dashboard-inline-error { color: #b42318; font-size: 13px; line-height: 1.5; margin: 0 0 16px; }
+.protection-active { border-radius: 999px; background: #dcfce7; color: #166534; font-size: 12px; font-weight: 700; padding: 6px 10px; }
+.dashboard-transaction-link { color: #0f766e; font-weight: 700; text-underline-offset: 3px; }
+.dashboard-card-action { display: block; margin: 0 auto; }
+
+.history-current-protection {
+  display: grid;
+  gap: 1rem;
+}
+
+.history-current-protection > div > h3,
+.history-current-protection > div > p {
+  margin: 0;
+}
+
+.history-current-protection > div > p {
+  margin-top: 0.35rem;
+  color: var(--text-muted);
+}
+
 
 .risk-badge {
   display: inline-block;
@@ -1816,6 +1879,9 @@ button:disabled {
     grid-template-columns:
       1fr;
   }
+
+  .risk-controls { grid-template-columns: 1fr; }
+  .risk-controls label { grid-column: auto; }
 
 
   .dashboard-hero {

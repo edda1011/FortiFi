@@ -35,6 +35,7 @@ function WalletPanel({
   loading,
   error,
   onSubmit,
+  onClear,
 }) {
   return (
     <div className="wallet-panel">
@@ -78,14 +79,10 @@ function WalletPanel({
               Base mainnet
             </span>
 
-            <button
-              type="submit"
-              disabled={loading}
-            >
-              {loading
-                ? "Checking..."
-                : "Check Wallet"}
-            </button>
+            <span className="wallet-form-actions">
+              <button type="button" className="button-secondary" onClick={onClear} disabled={loading || (!address && !result && history.length === 0 && !error)}>Clear</button>
+              <button type="submit" disabled={loading}>{loading ? "Checking..." : "Check Wallet"}</button>
+            </span>
 
           </div>
 

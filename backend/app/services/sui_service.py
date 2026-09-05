@@ -20,6 +20,7 @@ class SuiService:
         report_hash: str,
         base_wallet: str,
         signature: str,
+        record_type: str,
         base_transaction: str = "",
     ) -> tuple[str, str | None]:
         if not settings.sui_package_id or not settings.sui_registry_id:
@@ -37,7 +38,7 @@ class SuiService:
             "--module", "protection_policy",
             "--function", "create_record",
             "--args", settings.sui_registry_id, report_hash, sui_wallet,
-            signature, base_transaction or "0x", self.CLOCK_OBJECT,
+            signature, "0x" + record_type.encode().hex(), base_transaction or "0x", self.CLOCK_OBJECT,
             "--gas-budget", str(settings.sui_gas_budget),
             "--json",
         ]

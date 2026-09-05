@@ -189,8 +189,39 @@ class FollowUpEntry(BaseModel):
     created_at: str
 
 
+class HedgeExecution(BaseModel):
+    profile: str
+    recommendation_reason: str
+    eth_spot: float
+    max_budget: float
+    premium: float
+    strike: float
+    expiry: str
+    option_quantity: float
+    settlement: str
+    market_snapshot_at: str
+    transaction_hash: str
+    executed_at: str
+
+
+class HedgeExecutionRequest(BaseModel):
+    profile: str
+    recommendation_reason: str
+    eth_spot: float = Field(gt=0)
+    max_budget: float = Field(gt=0)
+    premium: float = Field(gt=0)
+    strike: float = Field(gt=0)
+    expiry: str
+    option_quantity: float = Field(gt=0)
+    settlement: str
+    market_snapshot_at: str
+    transaction_hash: str = Field(min_length=3)
+
+
 class HistoryDetail(BaseModel):
     analysis: ClaimAnalysisResponse
     created_at: str
     follow_ups: list[FollowUpEntry] = Field(default_factory=list)
+    analysis_record: ProtectionRecordResponse | None = None
     protection_record: ProtectionRecordResponse | None = None
+    hedge_execution: HedgeExecution | None = None

@@ -45,3 +45,10 @@ export function restoreHistory(analysisId) {
 export function permanentlyDeleteHistory(analysisId) {
   return apiFetch(`/api/claims/history/${analysisId}/permanent`, { method: "DELETE" });
 }
+
+export function saveHedgeExecution(analysisId, execution) {
+  return apiFetch(`/api/claims/history/${analysisId}/hedge`, {
+    method: "POST",
+    body: JSON.stringify(execution),
+  });
+}

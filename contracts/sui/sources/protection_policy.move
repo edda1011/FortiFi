@@ -18,6 +18,7 @@ public struct ProtectionRecord has key, store {
     report_hash: address,
     base_wallet: address,
     signature: vector<u8>,
+    record_type: vector<u8>,
     base_transaction: vector<u8>,
     created_at_ms: u64,
 }
@@ -41,6 +42,7 @@ entry fun create_record(
     report_hash: address,
     base_wallet: address,
     signature: vector<u8>,
+    record_type: vector<u8>,
     base_transaction: vector<u8>,
     clock: &Clock,
     ctx: &mut TxContext,
@@ -54,6 +56,7 @@ entry fun create_record(
         report_hash,
         base_wallet,
         signature,
+        record_type,
         base_transaction,
         created_at_ms: clock.timestamp_ms(),
     };

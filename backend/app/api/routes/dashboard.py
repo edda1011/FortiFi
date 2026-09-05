@@ -5,7 +5,6 @@ from app.schemas.dashboard import DashboardSummary
 from app.schemas.analysis import NewsItem
 from app.services.analysis_store import AnalysisStore
 from app.services.search_service import SearchService
-from app.services.state import app_state
 
 
 router = APIRouter(
@@ -21,23 +20,27 @@ async def dashboard_summary(owner_address: str | None = Depends(optional_wallet)
     """
     Summarize the current FortiFi state.
 
-    Stateless: reflects the most recent wallet check and risk
-    assessment made in this session (spec section 30). The dashboard
-    does not maintain its own database state.
+    Returns persisted claim and completed hedge information. Wallet balances
+    and risk calculations remain frontend page-session state.
     """
 
-    # Connected-wallet balances are refreshed live by the frontend. Do not
-    # expose the process-global result of another user's manual address check.
+    # Wallet balances and scenario calculations are page-session state in the
+    # frontend. A full refresh intentionally starts risk assessment empty.
     wallet = None
-    risk = app_state.risk
 
-    recent = AnalysisStore().recent(owner_address, limit=1) if owner_address else []
+    store = AnalysisStore()
+    recent = store.recent(owner_address, limit=50) if owner_address else []
+    latest_hedge = next(
+        (execution for analysis in recent if (execution := store.get_hedge_execution(analysis.analysis_id, owner_address))),
+        None,
+    )
     return DashboardSummary(
         has_wallet=wallet is not None,
         wallet=wallet,
-        has_risk=risk is not None,
-        risk=risk,
+        has_risk=False,
+        risk=None,
         latest_analysis=recent[0] if recent else None,
+        latest_hedge_execution=latest_hedge,
     )
 
 
